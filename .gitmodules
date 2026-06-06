@@ -1,0 +1,6 @@
+[submodule "liteend"]
+	path = liteend
+	url = https://github.com/uxname/liteend.git
+[submodule "litefront"]
+	path = litefront
+	url = https://github.com/uxname/litefront.git

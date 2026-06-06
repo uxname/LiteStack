@@ -1,0 +1,5 @@
+# Meta-repo only — sub-projects manage their own ignores.
+.DS_Store
+*.log
+.idea/
+.vscode/
