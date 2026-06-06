@@ -208,6 +208,68 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 One-time operations (deriving a new project, first-time setup) are described in `README.md`,
 not as skills.
 
+## Creating & updating skills (IMPORTANT — unusual structure)
+
+LiteStack uses a **thin-client** model for skills:
+
+- **The real skill = the source of truth, lives in the sub-project** (`liteend/.agents/skills/`
+  or `litefront/.agents/skills/`). It holds the full workflow.
+- **The meta-repo holds only a thin client** — a tiny `be-*`/`fe-*` **wrapper** in
+  `.claude/skills/` that points to the real skill. It carries **no workflow logic**, just
+  enough metadata to be discoverable + a `cd` + "read the real file" instruction.
+
+When the user asks to **create, update, rename, or delete** a skill, follow these rules.
+
+### 1. Decide where the skill belongs
+
+- Backend-specific (NestJS/Prisma/GraphQL-server/jobs/…) → **`liteend`**, wrapper prefix `be-`.
+- Frontend-specific (UI/FSD/routing/state/codegen-client/…) → **`litefront`**, wrapper prefix `fe-`.
+- Genuinely cross-project (orchestrates both, or pure meta git/submodule work) → lives
+  **directly in the meta `.claude/skills/`** as a real skill with **no wrapper** (like
+  `full-stack-feature` and `commit`).
+
+### 2. Create a sub-project skill (the common case)
+
+1. Write the real skill in the submodule: `<project>/.agents/skills/<name>/SKILL.md`.
+   Follow **that project's** skill conventions (see its `AGENTS.md`; e.g. skill content
+   must be English). This is where ALL the workflow text goes.
+2. Add the thin wrapper in the meta-repo: `.claude/skills/<prefix><name>/SKILL.md` using the
+   template below. Copy the real skill's `description` **verbatim** (including its trigger
+   phrases) so auto-activation fires; prefix the name with `be-`/`fe-`.
+3. Commit: the real skill is committed **inside the submodule** (its own repo); the wrapper
+   is committed **in the meta-repo**. Use the meta `commit` skill — it handles both layers.
+
+### 3. Wrapper template (the thin client)
+
+```markdown
+---
+name: <prefix><name>                # be-<name> for liteend, fe-<name> for litefront
+description: "[<project>] <verbatim copy of the real skill's description + its trigger phrases>"
+---
+
+Thin pointer to a skill that lives in the **`<project>`** submodule. The real workflow
+stays there (next to the code it operates on); this wrapper only makes it discoverable
+from the LiteStack root in both opencode and Claude Code.
+
+## Do this
+1. `cd <project>`
+2. Read and follow `.agents/skills/<name>/SKILL.md` **exactly** — it is the source of truth.
+3. Use that project's quality gate (`npm run check`) before finishing.
+```
+
+(`<project>` = `liteend` or `litefront`; `<prefix>` = `be-` or `fe-`.)
+
+### 4. Update / rename / delete
+
+- **Update behavior** → edit the real `SKILL.md` **in the submodule only**. The wrapper does
+  not change (it just points). Touch the wrapper **only** if the skill's `name`, `description`,
+  or trigger phrases changed — then mirror that into the wrapper so activation still matches.
+- **Rename** → rename both the submodule skill dir and its `<prefix>`-wrapper dir; keep
+  `name:` in sync in both files.
+- **Delete** → remove the submodule skill dir **and** its wrapper dir.
+- **Golden rule:** never copy the workflow body into the wrapper. One source of truth, in the
+  submodule. The wrapper stays ~10 lines forever. This is what keeps the two from drifting.
+
 ## Deriving a new project from LiteStack
 
 To start a real product (switch to DERIVED mode):
