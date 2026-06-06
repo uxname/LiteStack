@@ -30,8 +30,14 @@ LiteStack/
 ├── CLAUDE.md                  # pointer to AGENTS.md
 ├── liteend/                   # submodule → backend  (NestJS · Prisma · Mercurius GraphQL)
 ├── litefront/                 # submodule → frontend (Vite · React 19 · URQL)
-└── .agents/skills/            # cross-project meta-skills (full-stack-feature, commit)
+└── .claude/skills/            # meta-skills + be-*/fe-* wrappers to the sub-project skills
 ```
+
+**Skills:** each sub-project keeps its own skills (in `<project>/.agents/skills/`). The
+meta-repo adds thin `be-*`/`fe-*` wrappers in `.claude/skills/` that delegate into the
+submodules, so opening the LiteStack root surfaces every skill in both opencode and Claude
+Code. Plus two true cross-project skills: `full-stack-feature` and `commit`. See
+`AGENTS.md` → Skills.
 
 ## Two ways to use it
 

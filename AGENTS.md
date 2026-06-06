@@ -144,13 +144,25 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgAdmin `5100`, Redis ad
 
 ## Skills — catalog and how to use them
 
-Each sub-project ships its own agent **skills** (under `<project>/.agents/skills/<name>/SKILL.md`).
-**Skills live next to the code they operate on** — they run that project's commands and
-edit its files, so use them **inside the submodule** (`cd liteend` / `cd litefront`).
-The meta-project does **not** duplicate them; it indexes them here and adds a few
-cross-project skills of its own.
+**Where skills are discovered.** Both opencode and Claude Code auto-load skills from
+`.claude/skills/` at the project root. opencode additionally walks **up** to the current
+git-worktree root, so when your cwd is inside a submodule it also auto-loads that
+submodule's own `<project>/.agents/skills/`. Claude Code does **not** read `.agents/skills/`
+at all. Neither tool recurses **down** into submodules from the meta root.
 
-### Backend skills (`liteend/.agents/skills/`) — use inside `liteend/`
+**How LiteStack bridges this.** The real skill workflows live in each sub-project (next to
+the code they run — that is the single source of truth, no duplicated logic). The meta-repo
+adds, in `.claude/skills/`, a thin **wrapper** for each sub-project skill, namespaced
+`be-*` (backend → `liteend`) and `fe-*` (frontend → `litefront`). A wrapper is ~5 lines: it
+tells the agent to `cd` into the submodule and follow the real `SKILL.md` there. Result:
+open the LiteStack root in either tool and **every** skill is discoverable, collision-free
+(`be-commit`/`fe-commit`/`commit` are distinct), with zero workflow drift.
+
+> Invoke `be-<name>` / `fe-<name>` from the meta root; the wrapper hands off to the real
+> skill inside the submodule. If your cwd is already inside a submodule (opencode), you can
+> use the un-prefixed skill directly.
+
+### Backend skills — invoke as `be-<name>` (real workflow in `liteend/.agents/skills/`)
 | Skill | Use it to… |
 |---|---|
 | `implement-feature-tdd` | Implement any new backend feature strictly TDD |
@@ -164,7 +176,7 @@ cross-project skills of its own.
 | `commit` | Commit backend changes (runs check, conventional commits) |
 | `update-deps` | Update/upgrade npm dependencies |
 
-### Frontend skills (`litefront/.agents/skills/`) — use inside `litefront/`
+### Frontend skills — invoke as `fe-<name>` (real workflow in `litefront/.agents/skills/`)
 | Skill | Use it to… |
 |---|---|
 | `new-fsd-slice` | Scaffold a new FSD slice (feature/entity/widget/shared) |
@@ -183,10 +195,11 @@ cross-project skills of its own.
 | `commit` | Commit frontend changes (runs check, conventional commits) |
 | `update-deps` | Update/upgrade npm dependencies |
 
-> Both projects have their own `commit` and `update-deps` — when working **inside** a
-> submodule, use that submodule's version.
+> Both projects have their own `commit` and `update-deps`; at the meta root they are
+> `be-commit`/`fe-commit` and `be-update-deps`/`fe-update-deps`. To commit across the whole
+> stack use the meta-level `commit` skill instead (see below).
 
-### Meta skills (`.agents/skills/`) — use at the LiteStack root
+### Meta skills (`.claude/skills/`) — true cross-project, no submodule home
 | Skill | Use it to… |
 |---|---|
 | `full-stack-feature` | Orchestrate a feature across both sides: backend first → start backend → `npm run gen` on frontend → UI. Delegates to the sub-project skills in order. |
