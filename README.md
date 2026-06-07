@@ -2,8 +2,8 @@
 
 ## TL;DR
 
-- LiteStack is a **full-stack boilerplate**: a backend (`liteend`) + a frontend
-  (`litefront`) wired together as git submodules, plus an `AGENTS.md` that tells AI agents
+- LiteStack is a **full-stack boilerplate**: a backend (`backend`) + a frontend
+  (`frontend`) wired together as git submodules, plus an `AGENTS.md` that tells AI agents
   how to work across both.
 - It is a **starting point, not a runnable product**. The meta-repo holds no app code.
 - **Agents:** read [`AGENTS.md`](./AGENTS.md) first, then each sub-project's `AGENTS.md`.
@@ -15,7 +15,7 @@
 ---
 
 A full-stack **boilerplate** — in the same spirit as LiteEnd and LiteFront — that bundles
-a backend (`liteend`) and a frontend (`litefront`) as git submodules, with a thin
+a backend (`backend`) and a frontend (`frontend`) as git submodules, with a thin
 coordination layer (`AGENTS.md` + cross-project skills) tuned for AI coding agents.
 
 LiteStack runs nothing itself; each sub-project runs on its own. It carries no project
@@ -28,8 +28,8 @@ manager, bmad-method, etc.).
 LiteStack/
 ├── AGENTS.md                  # entry point: meta-project model, cross-project rules, two-mode git
 ├── CLAUDE.md                  # pointer to AGENTS.md
-├── liteend/                   # submodule → backend  (NestJS · Prisma · Mercurius GraphQL)
-├── litefront/                 # submodule → frontend (Vite · React 19 · URQL)
+├── backend/                   # submodule → backend  (NestJS · Prisma · Mercurius GraphQL)
+├── frontend/                 # submodule → frontend (Vite · React 19 · URQL)
 └── .claude/skills/            # meta-skills + be-*/fe-* wrappers to the sub-project skills
 ```
 
@@ -66,19 +66,19 @@ git submodule update --init --recursive
 Then install dependencies in each sub-project:
 
 ```bash
-( cd liteend   && npm install )
-( cd litefront && npm install )
+( cd backend   && npm install )
+( cd frontend && npm install )
 ```
 
 ### One-time fix: binary file attributes
 
-The upstream `litefront` marks some binary files (e.g. `.github/logo.png`) as text with
+The upstream `frontend` marks some binary files (e.g. `.github/logo.png`) as text with
 `eol=lf` in its `.gitattributes`, so git corrupts them on checkout and the submodule shows
 as "modified". Override this locally (per clone — not committed) so the submodule stays
 clean:
 
 ```bash
-cd litefront
+cd frontend
 printf '%s\n' '*.png binary' '*.jpg binary' '*.gif binary' '*.ico binary' '*.webp binary' \
   >> "$(git rev-parse --absolute-git-dir)/info/attributes"
 git checkout -- .          # restore the corrupted binaries
@@ -89,10 +89,10 @@ Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
 
 ## Running the projects (separately)
 
-- **Backend** (`liteend/`): `docker-compose up -d db redis` → `cp .env.example .env`
+- **Backend** (`backend/`): `docker-compose up -d db redis` → `cp .env.example .env`
   → `npm run db:migrations:apply` → `npm run start:dev` (GraphQL at `:4000/graphql`,
   Altair IDE at `:4000/altair`).
-- **Frontend** (`litefront/`): `cp .env.example .env` → `npm run gen` (backend must be up)
+- **Frontend** (`frontend/`): `cp .env.example .env` → `npm run gen` (backend must be up)
   → `npm run start:dev` (serves at `:3000`).
 
 Cross-project value contracts (must agree across the two `.env` files):

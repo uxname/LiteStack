@@ -6,8 +6,8 @@ LiteStack is a **full-stack boilerplate** — a starting point, in the same spir
 LiteEnd and LiteFront. It is **not a runnable product**. It bundles two real projects as
 git submodules and adds a thin coordination layer on top:
 
-- **`liteend/`** — the **backend** project (its own repo). All server code lives here.
-- **`litefront/`** — the **frontend** project (its own repo). All browser code lives here.
+- **`backend/`** — the **backend** project (its own repo). All server code lives here.
+- **`frontend/`** — the **frontend** project (its own repo). All browser code lives here.
 - **LiteStack** (this repo, the "meta-project") — owns **no application code**. It only
   coordinates: it tells the agent which project to touch, how the two connect, and how to
   commit across them.
@@ -18,8 +18,8 @@ Think of three boxes. Put each change in the right box:
 
 | You are changing… | Go to | Why |
 |---|---|---|
-| API, database, business logic, background jobs, server-side GraphQL | **`liteend/`** | Backend owns all server behavior |
-| UI, pages, routing, client state, styling, GraphQL the browser sends | **`litefront/`** | Frontend owns everything in the browser |
+| API, database, business logic, background jobs, server-side GraphQL | **`backend/`** | Backend owns all server behavior |
+| UI, pages, routing, client state, styling, GraphQL the browser sends | **`frontend/`** | Frontend owns everything in the browser |
 | How the two fit together, this guide, cross-project skills, submodule pointers | **LiteStack root** | The meta-project only coordinates |
 
 Rule of thumb: **never put application code in the meta-project.** If you're writing a
@@ -37,8 +37,8 @@ resolver, a component, a migration — you're in the wrong folder; go into a sub
 
 Before touching any code, read the `AGENTS.md` of the sub-project(s) you'll change:
 
-- **`liteend/AGENTS.md`** — backend rules, commands, conventions
-- **`litefront/AGENTS.md`** — frontend rules, commands, conventions
+- **`backend/AGENTS.md`** — backend rules, commands, conventions
+- **`frontend/AGENTS.md`** — frontend rules, commands, conventions
 
 Those are the source of truth for each side. This root file only covers what spans
 **both** projects. On any conflict inside a sub-project, the sub-project's `AGENTS.md` wins.
@@ -67,9 +67,9 @@ The **canonical boilerplate upstreams** are `uxname/liteend` and `uxname/litefro
 
 You are evolving the LiteStack / LiteEnd / LiteFront templates. A change may touch all three:
 
-1. Change code inside `liteend/` and/or `litefront/` → commit **and push** in each
+1. Change code inside `backend/` and/or `frontend/` → commit **and push** in each
    submodule to its canonical upstream. (Needs write access to those upstreams.)
-2. In the meta-repo: `git add liteend litefront` to record new submodule pointers, then
+2. In the meta-repo: `git add backend frontend` to record new submodule pointers, then
    commit (and push if the meta-repo has a remote).
 
 Use this mode **only** when the goal is to improve the boilerplate, not to build a product.
@@ -79,9 +79,9 @@ Use this mode **only** when the goal is to improve the boilerplate, not to build
 The submodules (and the meta-repo) point at **your own** repositories. Everything goes
 into your project:
 
-1. Change code inside `liteend/` and/or `litefront/` → commit **and push** in each
+1. Change code inside `backend/` and/or `frontend/` → commit **and push** in each
    submodule to **its own remote** (your backend/frontend repo).
-2. In the meta-repo: `git add liteend litefront`, commit, push to **your** meta repo.
+2. In the meta-repo: `git add backend frontend`, commit, push to **your** meta repo.
 
 Never push a derived project's changes to the `uxname/*` upstreams.
 
@@ -93,37 +93,37 @@ Never push a derived project's changes to the `uxname/*` upstreams.
 
 Each submodule is a **separate git repository** with its own history and remote(s):
 
-- Code changes inside `liteend/` are committed **in the `liteend` repo**.
-- Code changes inside `litefront/` are committed **in the `litefront` repo**.
+- Code changes inside `backend/` are committed **in the `backend` repo**.
+- Code changes inside `frontend/` are committed **in the `frontend` repo**.
 - The meta-repo commits only: (a) updated submodule pointers, (b) its own files
   (`AGENTS.md`, `README.md`, `.agents/`).
 
-Flow per change: `cd liteend` → edit → commit (+push) → `cd ..` → `git add liteend` →
+Flow per change: `cd backend` → edit → commit (+push) → `cd ..` → `git add backend` →
 commit (+push) the meta-repo. (The `commit` meta-skill automates this — see below.)
 
 ## Project map
 
 | Submodule | Role | Stack | Dev port | Read |
 |---|---|---|---|---|
-| `liteend/` | Backend / API | NestJS · Prisma · PostgreSQL · Redis/BullMQ · **Mercurius** GraphQL (code-first) · OIDC | `4000` (`/graphql`, IDE Altair at `/altair`) | `liteend/AGENTS.md` |
-| `litefront/` | Frontend / SPA | Vite · React 19 · TanStack Router · URQL · Zustand · Tailwind v4 · daisyUI · OIDC | `3000` | `litefront/AGENTS.md` |
+| `backend/` | Backend / API | NestJS · Prisma · PostgreSQL · Redis/BullMQ · **Mercurius** GraphQL (code-first) · OIDC | `4000` (`/graphql`, IDE Altair at `/altair`) | `backend/AGENTS.md` |
+| `frontend/` | Frontend / SPA | Vite · React 19 · TanStack Router · URQL · Zustand · Tailwind v4 · daisyUI · OIDC | `3000` | `frontend/AGENTS.md` |
 
 Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgAdmin `5100`, Redis admin
 `5200`, Prisma Studio `5555`.
 
 ## Which project for which task
 
-- **API, data, DB schema/migrations, business logic, jobs, server GraphQL types** → `liteend`
-- **UI, routing, client state, styling, GraphQL operations the browser sends** → `litefront`
-- **Full-stack feature** → both, **start with `liteend`** (define schema/resolver first),
-  then regenerate and consume types in `litefront`. Use the `full-stack-feature` skill.
+- **API, data, DB schema/migrations, business logic, jobs, server GraphQL types** → `backend`
+- **UI, routing, client state, styling, GraphQL operations the browser sends** → `frontend`
+- **Full-stack feature** → both, **start with `backend`** (define schema/resolver first),
+  then regenerate and consume types in `frontend`. Use the `full-stack-feature` skill.
 
 ## Back ↔ front seams (cross-project rules)
 
 - **GraphQL types are generated, not hand-written (on the frontend).** The frontend runs
   `npm run gen` against the backend's **live** schema at `VITE_GRAPHQL_API_URL` (default
   `http://localhost:4000/graphql`). **The backend must be running** or `gen` fails. So for
-  a full-stack change: edit backend schema → start backend → `npm run gen` in `litefront`
+  a full-stack change: edit backend schema → start backend → `npm run gen` in `frontend`
   → build UI from `@generated/*`. (Note: the backend itself is code-first Mercurius; its
   GraphQL types are hand-written and do not auto-sync with Prisma.)
 - **Auth is one shared OIDC provider (Logto).** Token audience must match across sides:
@@ -137,8 +137,8 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgAdmin `5100`, Redis ad
 - Quality gate: run **`npm run check`** inside each sub-project before declaring done.
   Never run `lint` + `ts:check` separately — that skips knip/steiger/biome-fix and breaks
   the lefthook pre-commit hook.
-- Both use **Biome** but with **different** configs: `liteend` = single quotes,
-  `litefront` = double quotes. Never copy formatting/style config across the boundary.
+- Both use **Biome** but with **different** configs: `backend` = single quotes,
+  `frontend` = double quotes. Never copy formatting/style config across the boundary.
 - Run the projects **separately**, each per its own `AGENTS.md`. There is no root
   orchestration. Backend needs `docker-compose up -d db redis` + `.env`; frontend needs `.env`.
 
@@ -153,7 +153,7 @@ at all. Neither tool recurses **down** into submodules from the meta root.
 **How LiteStack bridges this.** The real skill workflows live in each sub-project (next to
 the code they run — that is the single source of truth, no duplicated logic). The meta-repo
 adds, in `.claude/skills/`, a thin **wrapper** for each sub-project skill, namespaced
-`be-*` (backend → `liteend`) and `fe-*` (frontend → `litefront`). A wrapper is ~5 lines: it
+`be-*` (backend → `backend`) and `fe-*` (frontend → `frontend`). A wrapper is ~5 lines: it
 tells the agent to `cd` into the submodule and follow the real `SKILL.md` there. Result:
 open the LiteStack root in either tool and **every** skill is discoverable, collision-free
 (`be-commit`/`fe-commit`/`commit` are distinct), with zero workflow drift.
@@ -162,7 +162,7 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 > skill inside the submodule. If your cwd is already inside a submodule (opencode), you can
 > use the un-prefixed skill directly.
 
-### Backend skills — invoke as `be-<name>` (real workflow in `liteend/.agents/skills/`)
+### Backend skills — invoke as `be-<name>` (real workflow in `backend/.agents/skills/`)
 | Skill | Use it to… |
 |---|---|
 | `implement-feature-tdd` | Implement any new backend feature strictly TDD |
@@ -176,7 +176,7 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 | `commit` | Commit backend changes (runs check, conventional commits) |
 | `update-deps` | Update/upgrade npm dependencies |
 
-### Frontend skills — invoke as `fe-<name>` (real workflow in `litefront/.agents/skills/`)
+### Frontend skills — invoke as `fe-<name>` (real workflow in `frontend/.agents/skills/`)
 | Skill | Use it to… |
 |---|---|
 | `new-fsd-slice` | Scaffold a new FSD slice (feature/entity/widget/shared) |
@@ -212,8 +212,8 @@ not as skills.
 
 LiteStack uses a **thin-client** model for skills:
 
-- **The real skill = the source of truth, lives in the sub-project** (`liteend/.agents/skills/`
-  or `litefront/.agents/skills/`). It holds the full workflow.
+- **The real skill = the source of truth, lives in the sub-project** (`backend/.agents/skills/`
+  or `frontend/.agents/skills/`). It holds the full workflow.
 - **The meta-repo holds only a thin client** — a tiny `be-*`/`fe-*` **wrapper** in
   `.claude/skills/` that points to the real skill. It carries **no workflow logic**, just
   enough metadata to be discoverable + a `cd` + "read the real file" instruction.
@@ -222,8 +222,8 @@ When the user asks to **create, update, rename, or delete** a skill, follow thes
 
 ### 1. Decide where the skill belongs
 
-- Backend-specific (NestJS/Prisma/GraphQL-server/jobs/…) → **`liteend`**, wrapper prefix `be-`.
-- Frontend-specific (UI/FSD/routing/state/codegen-client/…) → **`litefront`**, wrapper prefix `fe-`.
+- Backend-specific (NestJS/Prisma/GraphQL-server/jobs/…) → **`backend`**, wrapper prefix `be-`.
+- Frontend-specific (UI/FSD/routing/state/codegen-client/…) → **`frontend`**, wrapper prefix `fe-`.
 - Genuinely cross-project (orchestrates both, or pure meta git/submodule work) → lives
   **directly in the meta `.claude/skills/`** as a real skill with **no wrapper** (like
   `full-stack-feature` and `commit`).
@@ -243,7 +243,7 @@ When the user asks to **create, update, rename, or delete** a skill, follow thes
 
 ```markdown
 ---
-name: <prefix><name>                # be-<name> for liteend, fe-<name> for litefront
+name: <prefix><name>                # be-<name> for backend, fe-<name> for frontend
 description: "[<project>] <verbatim copy of the real skill's description + its trigger phrases>"
 ---
 
@@ -257,7 +257,7 @@ from the LiteStack root in both opencode and Claude Code.
 3. Use that project's quality gate (`npm run check`) before finishing.
 ```
 
-(`<project>` = `liteend` or `litefront`; `<prefix>` = `be-` or `fe-`.)
+(`<project>` = `backend` or `frontend`; `<prefix>` = `be-` or `fe-`.)
 
 ### 4. Update / rename / delete
 

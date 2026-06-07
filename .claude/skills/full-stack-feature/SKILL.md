@@ -1,6 +1,6 @@
 ---
 name: full-stack-feature
-description: Orchestrate a feature that spans both the backend (liteend) and the frontend (litefront). Use this when a change needs work on both sides — e.g. "add a field to the API and show it in the UI", "new endpoint and a screen for it", "expose X in GraphQL and render it". Runs backend first, regenerates frontend types, then builds the UI. Delegates to each sub-project's own skills.
+description: Orchestrate a feature that spans both the backend (backend) and the frontend (frontend). Use this when a change needs work on both sides — e.g. "add a field to the API and show it in the UI", "new endpoint and a screen for it", "expose X in GraphQL and render it". Runs backend first, regenerates frontend types, then builds the UI. Delegates to each sub-project's own skills.
 ---
 
 The user wants a feature that touches **both** the backend and the frontend. This skill is
@@ -22,13 +22,13 @@ sync → frontend**.
 - Check the operating mode (see root `AGENTS.md` → Operating mode). It determines where you
   commit and push at the end.
 
-### Step 1: Backend (inside `liteend/`)
+### Step 1: Backend (inside `backend/`)
 
 ```bash
-cd liteend
+cd backend
 ```
 
-Read `liteend/AGENTS.md`, then use its skills as appropriate:
+Read `backend/AGENTS.md`, then use its skills as appropriate:
 
 - New module? → `new-module`
 - DB change? → `prisma-change` (edit schema → migrate → regen client → update services)
@@ -43,26 +43,26 @@ Finish the backend side completely and make sure `npm run check` passes.
 ### Step 2: Start the backend so the schema is live
 
 ```bash
-# in liteend/ (separate terminal)
+# in backend/ (separate terminal)
 docker-compose up -d db redis     # if not already running
 npm run start:dev                 # GraphQL live at http://localhost:4000/graphql
 ```
 
 The backend MUST be running for the next step.
 
-### Step 3: Sync the GraphQL contract (inside `litefront/`)
+### Step 3: Sync the GraphQL contract (inside `frontend/`)
 
 ```bash
-cd ../litefront
+cd ../frontend
 npm run gen                       # regenerate types from the live backend schema
 ```
 
 If `gen` fails, the backend is probably not running or the schema has an error — fix that
 before continuing.
 
-### Step 4: Frontend (inside `litefront/`)
+### Step 4: Frontend (inside `frontend/`)
 
-Read `litefront/AGENTS.md`, then use its skills as appropriate:
+Read `frontend/AGENTS.md`, then use its skills as appropriate:
 
 - New GraphQL operation? → `add-gql`
 - New page/route? → `new-page`

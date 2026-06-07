@@ -3,7 +3,7 @@ name: commit
 description: Commit changes across the LiteStack meta-repo and its submodules. Use this when the user asks to commit, save changes to git, or "commit this" while working at the LiteStack root. It commits inside each changed submodule first, then records the updated submodule pointers in the meta-repo, and pushes according to the operating mode (template vs derived).
 ---
 
-The user wants to commit work done across LiteStack. Because `liteend/` and `litefront/`
+The user wants to commit work done across LiteStack. Because `backend/` and `frontend/`
 are **separate git repositories** (submodules), a meta-level commit is a few ordered steps,
 not one `git commit`. Get the order right or the meta-repo will point at commits that were
 never pushed.
@@ -32,13 +32,13 @@ git submodule status
 
 ## Step 3: Commit inside each changed submodule
 
-For **each** submodule that has changes (`liteend` and/or `litefront`):
+For **each** submodule that has changes (`backend` and/or `frontend`):
 
 ```bash
 cd <submodule>
 # Use the submodule's OWN commit skill — it runs that project's `npm run check`
 # and follows its conventional-commit conventions.
-# (liteend → its `commit` skill; litefront → its `commit` skill.)
+# (backend → its `commit` skill; frontend → its `commit` skill.)
 git push          # push to the submodule's remote (per the detected mode)
 cd ..
 ```
@@ -48,7 +48,7 @@ Do not skip the submodule's `npm run check` / pre-commit hooks. Never use `--no-
 ## Step 4: Record the updated pointers in the meta-repo
 
 ```bash
-git add liteend litefront      # stage the new submodule commit pointers
+git add backend frontend       # stage the new submodule commit pointers
 git add -A                     # also stage any changed meta files (AGENTS.md, etc.)
 git status                     # review — never stage secrets (.env, credentials)
 ```
@@ -65,7 +65,7 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`. For meta-repo commits
 is usually the area (`agents`, `submodules`, `docs`) or omitted. Example:
 
 ```
-chore(submodules): bump liteend + litefront for user-avatar feature
+chore(submodules): bump backend + frontend for user-avatar feature
 ```
 
 ```bash
