@@ -166,6 +166,21 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgAdmin `5100`, Redis ad
 - Run the projects **separately**, each per its own `AGENTS.md`. There is no root
   orchestration. Backend needs `docker-compose up -d db redis` + `.env`; frontend needs `.env`.
 
+## Reading the frontend at runtime (agents can't see a browser)
+
+You have no eyes on a browser console. To inspect what the **frontend** does at runtime —
+console output, uncaught errors, failed requests — run the **agent log harness** from
+inside `frontend/`:
+
+```bash
+cd frontend && npm run test:e2e:logs
+```
+
+Then read `frontend/test-results/frontend-logs.{log,json}`. Full details, plus how the
+theme + i18n switchers work (and the daisyUI-semantic-tokens rule that keeps dark mode
+working), are in **`frontend/AGENTS.md`** → "Frontend observability for AI agents" and
+"Theming & i18n".
+
 ## Skills — catalog and how to use them
 
 **Where skills are discovered.** Both opencode and Claude Code auto-load skills from
