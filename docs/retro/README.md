@@ -30,6 +30,18 @@ Use [`TEMPLATE.md`](./TEMPLATE.md) verbatim. Hard rules so the reader subagent c
 - Every problem needs a **rule** (imperative, one line) — that is what future agents act on.
 - One concrete fact per bullet. No narrative, no fluff.
 
+## Retention & scaling
+
+Retros accumulate. To keep the read-before-coding step cheap:
+
+- The reader (root `AGENTS.md` → START HERE) already **deduplicates rules** across all files,
+  so volume degrades gracefully — never delete a retro just to shorten the list.
+- When a rule has become a permanent convention, **promote it into `AGENTS.md`** (the relevant
+  sub-project's, or the root) and note in the retro that it was promoted. Promoted rules no
+  longer need to be re-derived each session.
+- A retro is **superseded**, not deleted, when its lesson is wrong or obsolete — append a short
+  note at the top pointing to what replaced it. Keep the historical record.
+
 ## What does NOT go here
 
 - Things already captured by the code, git history, or `AGENTS.md`.
