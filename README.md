@@ -58,7 +58,11 @@ See `AGENTS.md` → **Operating mode** for detection and the commit/push rules.
 ```bash
 git clone --recurse-submodules <this-repo-url>
 cd LiteStack
+scripts/setup.sh        # submodules + binary fix + npm install + CodeGraph (idempotent)
 ```
+
+`scripts/setup.sh` runs every step below in one shot (re-runnable). Flags: `--no-codegraph`,
+`--no-install`. The manual equivalents follow if you prefer to run them piecemeal.
 
 Already cloned without submodules?
 
