@@ -67,6 +67,7 @@ BRAND_FILES=(
   "frontend/src/routes/protected/index.tsx"
   "frontend/src/routes/protected/account.tsx"
   "frontend/src/widgets/Header/ui/index.tsx"
+  "frontend/src/pages/home/ui/index.tsx"
 )
 for f in "${BRAND_FILES[@]}"; do
   OPS+=("$f|LiteFront|$DISPLAY")
@@ -99,8 +100,10 @@ for op in "${OPS[@]}"; do
     fi
   else
     if grep -qF "$from" "$path"; then
-      # \Q..\E quotes the literal; the captured token is fixed text, not a regex.
-      perl -i -pe "s/\Q$from\E/$to/g" "$path"
+      # Pass from/to via the environment so they are NEVER interpolated into the perl
+      # program: \Q\E quotes the pattern literally, and $ENV{TO} is a plain string (not a
+      # regex, not a delimiter) — so values containing '/', '$', etc. are safe.
+      RP_FROM="$from" RP_TO="$to" perl -i -pe 's/\Q$ENV{RP_FROM}\E/$ENV{RP_TO}/g' "$path"
       echo "edited $file  ($from -> $to)"
       changed=1
     fi
