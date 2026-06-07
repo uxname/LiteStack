@@ -3,3 +3,9 @@
 *.log
 .idea/
 .vscode/
+
+# Meta-repo tooling deps (CodeGraph CLI + scripts)
+/node_modules/
+
+# Cursor MCP config holds a machine-absolute project path (codegraph --path); regenerate via `npm run codegraph:install`
+/.cursor/mcp.json

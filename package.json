@@ -1,0 +1,16 @@
+{
+  "name": "litestack",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LiteStack meta-repo — coordination layer over the backend/frontend submodules. Holds no app code; owns cross-project tooling (CodeGraph index, scripts).",
+  "scripts": {
+    "codegraph:init": "codegraph init -i .",
+    "codegraph:install": "codegraph install -y -l local -t claude,opencode,cursor",
+    "codegraph:setup": "npm run codegraph:init && npm run codegraph:install",
+    "codegraph:status": "codegraph status",
+    "codegraph:reindex": "codegraph init -i ."
+  },
+  "devDependencies": {
+    "@colbymchenry/codegraph": "^0.9.9"
+  }
+}

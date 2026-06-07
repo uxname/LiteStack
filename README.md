@@ -28,6 +28,9 @@ manager, bmad-method, etc.).
 LiteStack/
 ├── AGENTS.md                  # entry point: meta-project model, cross-project rules, two-mode git
 ├── CLAUDE.md                  # pointer to AGENTS.md
+├── package.json               # meta tooling: CodeGraph CLI (devDep) + codegraph:* scripts
+├── .mcp.json                  # CodeGraph MCP server config (Claude Code)
+├── .codegraph/                # CodeGraph index DB (git-ignored; rebuilt by codegraph:init)
 ├── backend/                   # submodule → backend  (NestJS · Prisma · Mercurius GraphQL)
 ├── frontend/                 # submodule → frontend (Vite · React 19 · URQL)
 └── .claude/skills/            # meta-skills + be-*/fe-* wrappers to the sub-project skills
@@ -69,6 +72,32 @@ Then install dependencies in each sub-project:
 ( cd backend   && npm install )
 ( cd frontend && npm install )
 ```
+
+### CodeGraph (code-intelligence index for AI agents)
+
+The meta-repo owns a single [CodeGraph](https://github.com/colbymchenry/codegraph) index that
+spans **both** submodules — one structural knowledge graph (`codegraph_*` MCP tools) covering
+backend + frontend at once. The CLI ships as a meta-repo devDependency, so no global install is
+needed. One-time setup from the LiteStack root:
+
+```bash
+npm install          # brings the CodeGraph CLI into node_modules
+npm run codegraph:setup   # builds the index, then wires the MCP config into your agents
+```
+
+`codegraph:setup` runs two steps you can also invoke separately:
+
+| Script | What it does |
+|---|---|
+| `npm run codegraph:init` | Build/rebuild the index over the whole monorepo (`codegraph init -i .`) |
+| `npm run codegraph:install` | Wire the MCP server into agents — Claude Code, opencode, Cursor (local config) |
+| `npm run codegraph:reindex` | Re-run indexing after large changes (alias of `:init`) |
+| `npm run codegraph:status` | Show index health and file counts |
+
+After `codegraph:install`, **restart your agent** (Claude Code / Cursor / opencode) so it picks
+up the new MCP server. The index DB (`.codegraph/`) is git-ignored and local to each machine —
+every fresh clone runs `codegraph:setup` once. Queries run from the **meta-repo root**; the
+sub-projects carry no CodeGraph config of their own.
 
 ### One-time fix: binary file attributes
 
