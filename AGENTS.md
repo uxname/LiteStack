@@ -229,9 +229,9 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 | `full-stack-feature` | Orchestrate a feature across both sides: backend first → start backend → `npm run gen` on frontend → UI. Delegates to the sub-project skills in order. |
 | `commit` | Commit at the meta level: commit inside each changed submodule, record updated pointers in the meta-repo, push per the operating mode (template vs derived). |
 | `retro` | Write a session retrospective to `docs/retro/` — what went badly, root cause, and the rule to avoid repeating it. Runs automatically as the first step of `commit`. |
+| `new-project` | Bootstrap a brand-new product as a meta+submodules pair in DERIVED mode: scaffold → repoint submodules to the team's repos → rename identity → install → wire env → first commit. Orchestrates the `scripts/*.sh` backbone. |
 
-One-time operations (deriving a new project, first-time setup) are described in `README.md`,
-not as skills.
+First-time setup of an existing clone is `scripts/setup.sh` (see `README.md`).
 
 ## Creating & updating skills (IMPORTANT — unusual structure)
 
@@ -297,7 +297,9 @@ from the LiteStack root in both opencode and Claude Code.
 
 ## Deriving a new project from LiteStack
 
-To start a real product (switch to DERIVED mode):
+To start a real product (switch to DERIVED mode), use the **`new-project` skill** — it drives
+the whole flow (scaffold → repoint → rename → install → wire env → verify → first commit) on
+top of the tested `scripts/*.sh` backbone. The mechanical core, if you do it by hand:
 
 1. Create your own repos for the meta, backend, and frontend on **any git host**
    (fork/copy the `uxname/*` templates, or push fresh copies). Optionally keep the
@@ -309,7 +311,10 @@ To start a real product (switch to DERIVED mode):
    git submodule sync
    ```
 3. Set the meta-repo `origin` to your meta repo and push.
-4. From here, all commits/pushes target your repos (DERIVED mode rules above).
+4. Rename the template identity: `scripts/rename-project.sh --name <name> --display "<Brand>"`.
+5. Install + wire env: `scripts/setup.sh`, then copy `.env.example` → `.env` in each submodule
+   and confirm `scripts/doctor.sh` passes (see `docs/ENV-CONTRACT.md`).
+6. From here, all commits/pushes target your repos (DERIVED mode rules above).
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
