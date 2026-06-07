@@ -8,6 +8,14 @@ are **separate git repositories** (submodules), a meta-level commit is a few ord
 not one `git commit`. Get the order right or the meta-repo will point at commits that were
 never pushed.
 
+## Step 0: Write the session retrospective (mandatory)
+
+Before anything else, run the **`/retro` skill** to record what went badly this session into
+`docs/retro/`. This is the project's mistake-memory that future agents read before touching
+code (root `AGENTS.md` → START HERE). Skip the file write **only** if the session was
+genuinely clean — but always run the skill so that judgement is made deliberately, not by
+omission. The retro file is a meta-repo file; it gets staged and committed in Step 4–5 below.
+
 ## Step 1: Detect the operating mode
 
 Read root `AGENTS.md` → Operating mode. In short:
@@ -49,7 +57,7 @@ Do not skip the submodule's `npm run check` / pre-commit hooks. Never use `--no-
 
 ```bash
 git add backend frontend       # stage the new submodule commit pointers
-git add -A                     # also stage any changed meta files (AGENTS.md, etc.)
+git add -A                     # also stage any changed meta files (AGENTS.md, docs/retro/, etc.)
 git status                     # review — never stage secrets (.env, credentials)
 ```
 

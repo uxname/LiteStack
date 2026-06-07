@@ -35,13 +35,37 @@ resolver, a component, a migration — you're in the wrong folder; go into a sub
 
 ## 🔴 START HERE (mandatory first step)
 
-Before touching any code, read the `AGENTS.md` of the sub-project(s) you'll change:
+### 0. Read the retrospectives — learn from past mistakes
+
+Before touching any code, **read every `docs/retro/*.md`**. These are the accumulated
+records of what went wrong in past sessions, each ending in a one-line **rule**. Reading
+them first is how you avoid repeating mistakes the project already paid for.
+
+**Do this in a separate thread so it does not bloat your working context.** Spawn a
+subagent (Task / Agent tool) with this instruction:
+
+> Read every file in `docs/retro/*.md` (skip `README.md` and `TEMPLATE.md`). Return ONLY a
+> deduplicated, compact list of the **Rule — do this next time** lines, grouped by `area`
+> (backend / frontend / meta / cross). No file dumps, no narrative — just the rules.
+
+Apply the returned rules to the work you're about to do. If `docs/retro/` has no retro files
+yet, there is nothing to read — continue.
+
+### 1. Read the relevant AGENTS.md
+
+Then read the `AGENTS.md` of the sub-project(s) you'll change:
 
 - **`backend/AGENTS.md`** — backend rules, commands, conventions
 - **`frontend/AGENTS.md`** — frontend rules, commands, conventions
 
 Those are the source of truth for each side. This root file only covers what spans
 **both** projects. On any conflict inside a sub-project, the sub-project's `AGENTS.md` wins.
+
+### End of session — write a retrospective before committing
+
+At the end of a work session, **before committing**, run the **`/retro` skill** to record
+what went badly into `docs/retro/` (the `/commit` skill runs this automatically as its first
+step). This is what keeps the loop closed: today's mistakes become tomorrow's rules.
 
 ## 🟠 Operating mode — decide this BEFORE committing
 
@@ -204,6 +228,7 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 |---|---|
 | `full-stack-feature` | Orchestrate a feature across both sides: backend first → start backend → `npm run gen` on frontend → UI. Delegates to the sub-project skills in order. |
 | `commit` | Commit at the meta level: commit inside each changed submodule, record updated pointers in the meta-repo, push per the operating mode (template vs derived). |
+| `retro` | Write a session retrospective to `docs/retro/` — what went badly, root cause, and the rule to avoid repeating it. Runs automatically as the first step of `commit`. |
 
 One-time operations (deriving a new project, first-time setup) are described in `README.md`,
 not as skills.
