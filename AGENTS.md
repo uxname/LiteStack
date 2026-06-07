@@ -231,7 +231,8 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 | `retro` | Write a session retrospective to `docs/retro/` — what went badly, root cause, and the rule to avoid repeating it. Runs automatically as the first step of `commit`. |
 | `new-project` | Bootstrap a brand-new product as a meta+submodules pair in DERIVED mode: scaffold → repoint submodules to the team's repos → rename identity → install → wire env → first commit. Orchestrates the `scripts/*.sh` backbone. |
 
-First-time setup of an existing clone is `scripts/setup.sh` (see `README.md`).
+First-time setup of an existing clone is `scripts/setup.sh` (see `README.md`). Team process —
+repo model, branch/PR flow, CI, agent parity — is in `docs/TEAM.md`.
 
 ## Creating & updating skills (IMPORTANT — unusual structure)
 
