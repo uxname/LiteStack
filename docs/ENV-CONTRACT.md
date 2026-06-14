@@ -24,14 +24,24 @@ stale. Correct order for a fresh project:
 
 1. Configure `backend/.env` and `frontend/.env` (copy from `.env.example`).
 2. `scripts/doctor.sh` — confirm the pairs above agree.
-3. Start the backend (`cd backend && docker compose up -d db redis && npm run db:migrations:apply && npm run start:dev`).
+3. Start the backend (`cd backend && task start:dev` — brings up Docker db+redis, runs goose
+   migrations automatically at startup, then serves with hot-reload).
 4. Verify GraphQL: `curl -s -X POST localhost:<BE_PORT>/graphql -H 'content-type: application/json' -d '{"query":"{ __typename }"}'`.
 5. `cd frontend && npm run gen` (now the schema is reachable).
 
 ## OIDC / Logto note
 
-`.env.example` ships a **shared public dev Logto tenant** (`https://auth.uxna.me/oidc`) so the
-stack authenticates out of the box. These are public identifiers, not secrets. For a real
-project, register your own Logto tenant + API resource and swap `OIDC_ISSUER` / `OIDC_JWKS_URI`
-(backend) and `VITE_OIDC_AUTHORITY` / `VITE_OIDC_CLIENT_ID` / `VITE_OIDC_API_RESOURCE` (frontend).
-To bypass OIDC entirely in local dev, set backend `OIDC_MOCK_ENABLED=true`.
+The two `.env.example` defaults intentionally **diverge**, so the must-match pairs above only
+hold once you pick a mode:
+
+- **Backend (liteend-go) ships `OIDC_MOCK_ENABLED=true`** — local dev bypasses OIDC entirely
+  (hardcoded user with ADMIN+USER roles; mock header `x-mock-sub: <id>`). In mock mode the
+  backend's `OIDC_ISSUER`/`OIDC_AUDIENCE` are unused, so `doctor.sh`'s OIDC checks against the
+  frontend will report a mismatch you can ignore.
+- **Frontend `.env.example` ships the shared public dev Logto tenant** (`https://auth.uxna.me/oidc`).
+  These are public identifiers, not secrets.
+
+To run **real OIDC** end-to-end: set backend `OIDC_MOCK_ENABLED=false` and make the backend's
+`OIDC_ISSUER`/`OIDC_JWKS_URI`/`OIDC_AUDIENCE` match the frontend's
+`VITE_OIDC_AUTHORITY`/`VITE_OIDC_API_RESOURCE` (the pairs above) — point both at the same Logto
+tenant + API resource. For a real project, register your own tenant and swap all of them.

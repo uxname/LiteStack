@@ -22,33 +22,38 @@ sync → frontend**.
 - Check the operating mode (see root `AGENTS.md` → Operating mode). It determines where you
   commit and push at the end.
 
-### Step 1: Backend (inside `backend/`)
+### Step 1: Backend (inside `backend/` — Go, liteend-go)
 
 ```bash
 cd backend
 ```
 
-Read `backend/AGENTS.md`, then use its skills as appropriate:
+**Read `backend/AGENTS.md` first — it is the source of truth for the Go workflow.** The
+backend has no `be-*` meta skills; follow its own conventions. The common moves:
 
-- New module? → `new-module`
-- DB change? → `prisma-change` (edit schema → migrate → regen client → update services)
-- New/changed GraphQL type? → `add-graphql-type`
-- Background job? → `add-queue-job`
-- Implement the behavior TDD → `implement-feature-tdd`
-- Tests → `add-tests` / `add-e2e-test`
-- Quality gate → `check` (or `npm run check`)
+- New/changed GraphQL field → edit `internal/graph/schema.graphqls` (give every type, field,
+  enum value, input a `"description"`) → `task gen` → implement the resolver stub in
+  `internal/graph/resolver/`.
+- DB query → add it to `db/queries/*.sql` with a `-- name:` annotation → `task gen` → use
+  `database.Queries.<Name>`.
+- Schema/column change → `task migration:create name=...` (goose, forward-only, embedded).
+- Background job → define a task type + handler in `internal/queue`, register it in the mux.
+- New REST route → add it in `mountRoutes` (`internal/app/app.go`) AND document it in
+  `internal/devtools/openapi.yaml` (a route-sync test enforces this).
 
-Finish the backend side completely and make sure `npm run check` passes.
+Finish the backend side completely and make sure **`task check`** passes (Docker-free:
+codegen-freshness, build, lint, vuln, format, tidy, secrets).
 
 ### Step 2: Start the backend so the schema is live
 
 ```bash
 # in backend/ (separate terminal)
-docker-compose up -d db redis     # if not already running
-npm run start:dev                 # GraphQL live at http://localhost:4000/graphql
+task start:dev                    # brings up Docker db+redis, runs migrations (goose,
+                                  # programmatic), GraphQL live at localhost:4000/graphql
 ```
 
-The backend MUST be running for the next step.
+The backend MUST be running for the next step. (Migrations run automatically at startup —
+no separate apply step.)
 
 ### Step 3: Sync the GraphQL contract (inside `frontend/`)
 

@@ -38,10 +38,12 @@ backend schema), then frontend PR, then the meta pointer bump. See the `full-sta
 ## CI
 
 `.github/workflows/ci.yml` runs on the meta-repo: it checks out submodules recursively (which
-validates the pinned pointers resolve) and runs each submodule's `npm run check`. Each submodule
-also has its own pre-commit (`npm run check`) and pre-push (`check` + `test:all`) hooks via
-lefthook — never bypass with `--no-verify`. e2e tests are hermetic (mock auth + stubbed
-GraphQL), so they need no live backend.
+validates the pinned pointers resolve) and runs each submodule's own quality gate in its own
+job — **backend (liteend-go) = `task check` + `task test`** (Go), **frontend = `npm run check`**.
+Each submodule also has its own lefthook hooks — backend pre-commit `task check` / pre-push
+`task test:all`; frontend pre-commit `npm run check` / pre-push `check` + `test:all` — never
+bypass with `--no-verify`. Frontend e2e tests are hermetic (mock auth + stubbed GraphQL), so
+they need no live backend.
 
 ## Agent tooling — Claude Code & opencode parity
 

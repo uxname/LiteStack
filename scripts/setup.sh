@@ -5,8 +5,12 @@
 # Idempotent: safe to re-run. Replaces the manual steps in README.md.
 #   1. init/update submodules
 #   2. apply the frontend binary-attributes fix (per-clone, not committed)
-#   3. npm install in backend + frontend
+#   3. fetch deps: `go mod download` in backend (Go), `npm install` in frontend
 #   4. npm install + codegraph:setup at the meta root (unless --no-codegraph)
+#
+# Note: this only fetches dependencies. Full backend bring-up (env, hooks, codegen,
+# DB+Redis, migrations) is `cd backend && task setup` — it needs Docker, so it is not
+# run here. See backend/AGENTS.md.
 #
 # Usage: scripts/setup.sh [--no-codegraph] [--no-install]
 #
@@ -45,12 +49,12 @@ step "Frontend: binary-attributes fix (per-clone)"
 echo "  applied"
 
 if [[ "$DO_INSTALL" == 1 ]]; then
-  step "Backend: npm install"
-  ( cd backend && npm install )
+  step "Backend (Go): go mod download"
+  ( cd backend && go mod download )
   step "Frontend: npm install"
   ( cd frontend && npm install )
 else
-  echo "  (skipped submodule npm install — --no-install)"
+  echo "  (skipped submodule dependency install — --no-install)"
 fi
 
 if [[ "$DO_CODEGRAPH" == 1 ]]; then
@@ -66,4 +70,5 @@ fi
 
 step "Done"
 echo "Next: read AGENTS.md, then backend/AGENTS.md and frontend/AGENTS.md."
+echo "Backend full bring-up (Docker DB+Redis + migrations): cd backend && task setup."
 echo "For a new project (not just a clone), see the rename + new-project flow in AGENTS.md."

@@ -45,8 +45,8 @@ rm -rf .git && git init        # drop template history; start the project's own
 ## Step 3: Repoint submodules + remotes to the team repos (DERIVED mode)
 
 ```bash
-git config -f .gitmodules submodule.liteend.url   <backend-repo-url>
-git config -f .gitmodules submodule.litefront.url <frontend-repo-url>
+git config -f .gitmodules submodule.liteend-go.url <backend-repo-url>
+git config -f .gitmodules submodule.litefront.url  <frontend-repo-url>
 git submodule sync
 ( cd backend  && git remote set-url origin <backend-repo-url> )
 ( cd frontend && git remote set-url origin <frontend-repo-url> )
@@ -63,22 +63,23 @@ After this, `.gitmodules` URLs point at the team's repos → the project is in *
 scripts/rename-project.sh --name <name> --display "<Brand>" --repo-owner <owner>
 ```
 
-This rewrites `liteend`/`litefront`/`LiteFront` across package.json, docker-compose network,
-the theme store key, the PWA manifest, page titles, and demo links. Run it BEFORE installing.
+This rewrites the template identity (`liteend-go`/`litefront`/`LiteFront`) across the backend
+`go.mod` module path + docker-compose network, the frontend package.json, theme store key, PWA
+manifest, page titles, and demo links. Run it BEFORE installing.
 
 ## Step 5: Install + environment
 
 ```bash
-scripts/setup.sh        # submodules + binary fix + npm install + CodeGraph
+scripts/setup.sh        # submodules + binary fix + go mod download (backend) + npm install (frontend) + CodeGraph
 cp backend/.env.example  backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-`.env.example` ships a **shared public dev Logto tenant** so auth works out of the box — fine
-for first run. For a real product, register the team's own Logto tenant + API resource and swap
-`OIDC_ISSUER`/`OIDC_JWKS_URI` (backend) and `VITE_OIDC_AUTHORITY`/`VITE_OIDC_CLIENT_ID`/
-`VITE_OIDC_API_RESOURCE` (frontend). See `docs/ENV-CONTRACT.md`. For local-only dev you may set
-backend `OIDC_MOCK_ENABLED=true` to bypass OIDC.
+The backend (liteend-go) ships `OIDC_MOCK_ENABLED=true` — local dev bypasses OIDC out of the
+box; the frontend `.env.example` points at the shared public dev Logto tenant. For real auth,
+set backend `OIDC_MOCK_ENABLED=false` and match `OIDC_ISSUER`/`OIDC_JWKS_URI`/`OIDC_AUDIENCE`
+(backend) to `VITE_OIDC_AUTHORITY`/`VITE_OIDC_API_RESOURCE` (frontend) — same Logto tenant +
+API resource. See `docs/ENV-CONTRACT.md` (the two `.env.example` defaults intentionally diverge).
 
 ## Step 6: Verify the env contract
 
@@ -94,7 +95,7 @@ The frontend generates GraphQL types from the backend's **live** schema — back
 first.
 
 ```bash
-( cd backend && docker compose up -d db redis && npm run db:migrations:apply && npm run start:dev & )
+( cd backend && task start:dev & )          # brings up Docker db+redis, runs goose migrations, serves
 # wait for it, then verify GraphQL actually answers (not just /health):
 curl -s -X POST localhost:4000/graphql -H 'content-type: application/json' \
      -d '{"query":"{ __typename }"}'      # expect {"data":{"__typename":"Query"}}
@@ -112,10 +113,10 @@ to the team's repos (DERIVED mode). Confirm with the user before the first push.
 Report to the user:
 
 - [ ] Three repos created and pushed (meta + backend + frontend).
-- [ ] Identity renamed (`grep -rn 'liteend\|litefront'` finds only historical docs).
-- [ ] `scripts/doctor.sh` passes.
-- [ ] Backend runs; `/graphql` answers; frontend `npm run gen` succeeded.
-- [ ] Logto: still on the shared dev tenant (swap before production).
+- [ ] Identity renamed (`grep -rn 'liteend-go\|litefront'` finds only historical docs).
+- [ ] `scripts/doctor.sh` passes (or OIDC mismatch is expected — backend in mock mode).
+- [ ] Backend runs (`task start:dev`); `/graphql` answers; frontend `npm run gen` succeeded.
+- [ ] Auth: backend in mock mode or swapped to the team's Logto tenant (before production).
 - [ ] CodeGraph index built; agent restarted to load the MCP server.
 
 ## What NOT to do

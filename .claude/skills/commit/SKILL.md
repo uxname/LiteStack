@@ -21,7 +21,7 @@ omission. The retro file is a meta-repo file; it gets staged and committed in St
 Read root `AGENTS.md` → Operating mode. In short:
 
 ```bash
-git config -f .gitmodules submodule.liteend.url
+git config -f .gitmodules submodule.liteend-go.url
 git config -f .gitmodules submodule.litefront.url
 ```
 

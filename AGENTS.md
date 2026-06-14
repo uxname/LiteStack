@@ -77,11 +77,11 @@ agnostic — your repos can live on any host, not only GitHub.)
 
 ```bash
 # submodule remotes
-git config -f .gitmodules submodule.liteend.url
+git config -f .gitmodules submodule.liteend-go.url
 git config -f .gitmodules submodule.litefront.url
 ```
 
-The **canonical boilerplate upstreams** are `uxname/liteend` and `uxname/litefront`
+The **canonical boilerplate upstreams** are `uxname/liteend-go` and `uxname/litefront`
 (currently hosted at `github.com/uxname/*`).
 
 - **Submodule URLs still point at the canonical `uxname/*` upstreams → TEMPLATE mode.**
@@ -129,11 +129,11 @@ commit (+push) the meta-repo. (The `commit` meta-skill automates this — see be
 
 | Submodule | Role | Stack | Dev port | Read |
 |---|---|---|---|---|
-| `backend/` | Backend / API | NestJS · Prisma · PostgreSQL · Redis/BullMQ · **Mercurius** GraphQL (code-first) · OIDC | `4000` (`/graphql`, IDE Altair at `/altair`) | `backend/AGENTS.md` |
+| `backend/` | Backend / API (**liteend-go**) | Go · chi · **gqlgen** GraphQL (schema-first) · sqlc · pgx · PostgreSQL · Redis · Asynq · goose · OIDC | `4000` (`/graphql` + gqlgen playground) | `backend/AGENTS.md` |
 | `frontend/` | Frontend / SPA | Vite · React 19 · TanStack Router · URQL · Zustand · Tailwind v4 · daisyUI · OIDC | `3000` | `frontend/AGENTS.md` |
 
-Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgAdmin `5100`, Redis admin
-`5200`, Prisma Studio `5555`.
+Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsight
+`5200`, Asynqmon `5300` (all dashboards sit behind a Basic-Auth proxy — `ADMIN_USER`/`ADMIN_PASSWORD`).
 
 ## Which project for which task
 
@@ -148,23 +148,27 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgAdmin `5100`, Redis ad
   `npm run gen` against the backend's **live** schema at `VITE_GRAPHQL_API_URL` (default
   `http://localhost:4000/graphql`). **The backend must be running** or `gen` fails. So for
   a full-stack change: edit backend schema → start backend → `npm run gen` in `frontend`
-  → build UI from `@generated/*`. (Note: the backend itself is code-first Mercurius; its
-  GraphQL types are hand-written and do not auto-sync with Prisma.)
+  → build UI from `@generated/*`. (Note: the backend is gqlgen **schema-first** —
+  `backend/internal/graph/schema.graphqls` is the source of truth; edit it, then `task gen`
+  regenerates the server resolvers.)
 - **Auth is one shared OIDC provider (Logto).** Token audience must match across sides:
-  frontend `VITE_OIDC_API_RESOURCE` == backend `OIDC_AUDIENCE` (default
-  `http://localhost:4000`). Mismatch → backend rejects the token.
+  frontend `VITE_OIDC_API_RESOURCE` == backend `OIDC_AUDIENCE`. Mismatch → backend rejects
+  the token. (Local dev can bypass OIDC with backend `OIDC_MOCK_ENABLED=true`.)
 - **CORS** — backend `CORS_ORIGIN` must include the SPA origin (`http://localhost:3000`).
 
 ## Shared conventions
 
-- Package manager: **npm** in both.
-- Quality gate: run **`npm run check`** inside each sub-project before declaring done.
-  Never run `lint` + `ts:check` separately — that skips knip/steiger/biome-fix and breaks
-  the lefthook pre-commit hook.
-- Both use **Biome** but with **different** configs: `backend` = single quotes,
-  `frontend` = double quotes. Never copy formatting/style config across the boundary.
+- Build tools differ by stack: **backend = Go + `task`** (Taskfile); **frontend = npm**.
+  Don't assume npm on the backend.
+- Quality gate: **`task check`** inside `backend/`, **`npm run check`** inside `frontend/` —
+  run the right one before declaring done. On the frontend never run `lint` + `ts:check`
+  separately (skips knip/steiger/biome-fix and breaks the lefthook hook); the backend's
+  `task check` is the single Go gate (codegen-freshness, build, lint, vuln, fmt, tidy).
+- Formatters differ and must not be shared: `backend` = gofumpt + golangci-lint (Go);
+  `frontend` = Biome (double quotes). Never copy formatting/lint config across the boundary.
 - Run the projects **separately**, each per its own `AGENTS.md`. There is no root
-  orchestration. Backend needs `docker-compose up -d db redis` + `.env`; frontend needs `.env`.
+  orchestration. Backend: `cd backend && task start:dev` (brings up Docker db+redis, runs
+  goose migrations, hot-reload) + `.env`; frontend needs `.env`.
 
 ## Reading the frontend at runtime (agents can't see a browser)
 
@@ -189,31 +193,19 @@ git-worktree root, so when your cwd is inside a submodule it also auto-loads tha
 submodule's own `<project>/.agents/skills/`. Claude Code does **not** read `.agents/skills/`
 at all. Neither tool recurses **down** into submodules from the meta root.
 
-**How LiteStack bridges this.** The real skill workflows live in each sub-project (next to
-the code they run — that is the single source of truth, no duplicated logic). The meta-repo
-adds, in `.claude/skills/`, a thin **wrapper** for each sub-project skill, namespaced
-`be-*` (backend → `backend`) and `fe-*` (frontend → `frontend`). A wrapper is ~5 lines: it
-tells the agent to `cd` into the submodule and follow the real `SKILL.md` there. Result:
-open the LiteStack root in either tool and **every** skill is discoverable, collision-free
-(`be-commit`/`fe-commit`/`commit` are distinct), with zero workflow drift.
+**How LiteStack bridges this.** The real **frontend** skill workflows live in the frontend
+sub-project (next to the code they run — single source of truth, no duplicated logic). The
+meta-repo adds, in `.claude/skills/`, a thin **wrapper** for each, namespaced `fe-*`
+(frontend → `frontend`). A wrapper is ~5 lines: it tells the agent to `cd frontend` and
+follow the real `SKILL.md` there.
 
-> Invoke `be-<name>` / `fe-<name>` from the meta root; the wrapper hands off to the real
-> skill inside the submodule. If your cwd is already inside a submodule (opencode), you can
-> use the un-prefixed skill directly.
+> **The backend (liteend-go) ships no skills.** It is a Go project with its own detailed
+> `backend/AGENTS.md` (gqlgen schema-first, sqlc, goose, Asynq, `task`). For any backend
+> task, **`cd backend` and follow `backend/AGENTS.md`** — there are no `be-*` wrappers.
 
-### Backend skills — invoke as `be-<name>` (real workflow in `backend/.agents/skills/`)
-| Skill | Use it to… |
-|---|---|
-| `implement-feature-tdd` | Implement any new backend feature strictly TDD |
-| `new-module` | Scaffold a new NestJS business module |
-| `add-graphql-type` | Add a GraphQL ObjectType/InputType/Enum (code-first Mercurius) |
-| `prisma-change` | Edit Prisma schema → migrate → regen client → update services |
-| `add-queue-job` | Add a BullMQ job (processor, producer, module, tests) |
-| `add-tests` | Unit tests for a service/resolver/controller (Vitest) |
-| `add-e2e-test` | E2E test for a controller/resolver (Fastify inject) |
-| `check` | Run full quality pipeline (TS + Biome + Knip) and fix issues |
-| `commit` | Commit backend changes (runs check, conventional commits) |
-| `update-deps` | Update/upgrade npm dependencies |
+> Invoke `fe-<name>` from the meta root; the wrapper hands off to the real skill inside the
+> frontend submodule. If your cwd is already inside the frontend (opencode), you can use the
+> un-prefixed skill directly.
 
 ### Frontend skills — invoke as `fe-<name>` (real workflow in `frontend/.agents/skills/`)
 | Skill | Use it to… |
@@ -234,9 +226,9 @@ open the LiteStack root in either tool and **every** skill is discoverable, coll
 | `commit` | Commit frontend changes (runs check, conventional commits) |
 | `update-deps` | Update/upgrade npm dependencies |
 
-> Both projects have their own `commit` and `update-deps`; at the meta root they are
-> `be-commit`/`fe-commit` and `be-update-deps`/`fe-update-deps`. To commit across the whole
-> stack use the meta-level `commit` skill instead (see below).
+> The frontend has its own `commit` and `update-deps` (at the meta root: `fe-commit`,
+> `fe-update-deps`). The backend has no skills — commit/deps there follow `backend/AGENTS.md`
+> (`git` + `task`). To commit across the whole stack use the meta-level `commit` skill (below).
 
 ### Meta skills (`.claude/skills/`) — true cross-project, no submodule home
 | Skill | Use it to… |
@@ -251,62 +243,65 @@ repo model, branch/PR flow, CI, agent parity — is in `docs/TEAM.md`.
 
 ## Creating & updating skills (IMPORTANT — unusual structure)
 
-LiteStack uses a **thin-client** model for skills:
+LiteStack uses a **thin-client** model for **frontend** skills (the backend ships none):
 
-- **The real skill = the source of truth, lives in the sub-project** (`backend/.agents/skills/`
-  or `frontend/.agents/skills/`). It holds the full workflow.
-- **The meta-repo holds only a thin client** — a tiny `be-*`/`fe-*` **wrapper** in
-  `.claude/skills/` that points to the real skill. It carries **no workflow logic**, just
-  enough metadata to be discoverable + a `cd` + "read the real file" instruction.
+- **The real skill = the source of truth, lives in the frontend sub-project**
+  (`frontend/.agents/skills/`). It holds the full workflow.
+- **The meta-repo holds only a thin client** — a tiny `fe-*` **wrapper** in `.claude/skills/`
+  that points to the real skill. It carries **no workflow logic**, just enough metadata to
+  be discoverable + a `cd` + "read the real file" instruction.
+- **The backend (liteend-go) has no skills and no wrappers.** Backend work follows
+  `backend/AGENTS.md` directly. If a backend skill is ever wanted, it belongs **inside the
+  liteend-go repo** (its own `.agents/skills/`), not the meta-repo — keep the meta layer
+  free of backend wrappers.
 
 When the user asks to **create, update, rename, or delete** a skill, follow these rules.
 
 ### 1. Decide where the skill belongs
 
-- Backend-specific (NestJS/Prisma/GraphQL-server/jobs/…) → **`backend`**, wrapper prefix `be-`.
 - Frontend-specific (UI/FSD/routing/state/codegen-client/…) → **`frontend`**, wrapper prefix `fe-`.
+- Backend-specific (GraphQL-server/DB/jobs/…) → **inside the liteend-go repo**, per its own
+  `AGENTS.md`. No meta-repo wrapper.
 - Genuinely cross-project (orchestrates both, or pure meta git/submodule work) → lives
   **directly in the meta `.claude/skills/`** as a real skill with **no wrapper** (like
   `full-stack-feature` and `commit`).
 
-### 2. Create a sub-project skill (the common case)
+### 2. Create a frontend skill (the common case)
 
-1. Write the real skill in the submodule: `<project>/.agents/skills/<name>/SKILL.md`.
-   Follow **that project's** skill conventions (see its `AGENTS.md`; e.g. skill content
-   must be English). This is where ALL the workflow text goes.
-2. Add the thin wrapper in the meta-repo: `.claude/skills/<prefix><name>/SKILL.md` using the
+1. Write the real skill in the submodule: `frontend/.agents/skills/<name>/SKILL.md`.
+   Follow the frontend's skill conventions (see `frontend/AGENTS.md`; skill content must be
+   English). This is where ALL the workflow text goes.
+2. Add the thin wrapper in the meta-repo: `.claude/skills/fe-<name>/SKILL.md` using the
    template below. Copy the real skill's `description` **verbatim** (including its trigger
-   phrases) so auto-activation fires; prefix the name with `be-`/`fe-`.
-3. Commit: the real skill is committed **inside the submodule** (its own repo); the wrapper
-   is committed **in the meta-repo**. Use the meta `commit` skill — it handles both layers.
+   phrases) so auto-activation fires; prefix the name with `fe-`.
+3. Commit: the real skill is committed **inside the frontend submodule** (its own repo); the
+   wrapper is committed **in the meta-repo**. Use the meta `commit` skill — both layers.
 
 ### 3. Wrapper template (the thin client)
 
 ```markdown
 ---
-name: <prefix><name>                # be-<name> for backend, fe-<name> for frontend
-description: "[<project>] <verbatim copy of the real skill's description + its trigger phrases>"
+name: fe-<name>
+description: "[frontend] <verbatim copy of the real skill's description + its trigger phrases>"
 ---
 
-Thin pointer to a skill that lives in the **`<project>`** submodule. The real workflow
+Thin pointer to a skill that lives in the **`frontend`** submodule. The real workflow
 stays there (next to the code it operates on); this wrapper only makes it discoverable
 from the LiteStack root in both opencode and Claude Code.
 
 ## Do this
-1. `cd <project>`
+1. `cd frontend`
 2. Read and follow `.agents/skills/<name>/SKILL.md` **exactly** — it is the source of truth.
-3. Use that project's quality gate (`npm run check`) before finishing.
+3. Use the frontend quality gate (`npm run check`) before finishing.
 ```
-
-(`<project>` = `backend` or `frontend`; `<prefix>` = `be-` or `fe-`.)
 
 ### 4. Update / rename / delete
 
-- **Update behavior** → edit the real `SKILL.md` **in the submodule only**. The wrapper does
-  not change (it just points). Touch the wrapper **only** if the skill's `name`, `description`,
-  or trigger phrases changed — then mirror that into the wrapper so activation still matches.
-- **Rename** → rename both the submodule skill dir and its `<prefix>`-wrapper dir; keep
-  `name:` in sync in both files.
+- **Update behavior** → edit the real `SKILL.md` **in the frontend submodule only**. The
+  wrapper does not change (it just points). Touch the wrapper **only** if the skill's `name`,
+  `description`, or trigger phrases changed — then mirror that into the wrapper.
+- **Rename** → rename both the submodule skill dir and its `fe-`-wrapper dir; keep `name:`
+  in sync in both files.
 - **Delete** → remove the submodule skill dir **and** its wrapper dir.
 - **Golden rule:** never copy the workflow body into the wrapper. One source of truth, in the
   submodule. The wrapper stays ~10 lines forever. This is what keeps the two from drifting.
@@ -322,8 +317,8 @@ top of the tested `scripts/*.sh` backbone. The mechanical core, if you do it by 
    canonical template as an `upstream` remote — but note we do not chase upstream changes.
 2. Re-point the submodules to your repos:
    ```bash
-   git config -f .gitmodules submodule.liteend.url   <your-backend-repo-url>
-   git config -f .gitmodules submodule.litefront.url <your-frontend-repo-url>
+   git config -f .gitmodules submodule.liteend-go.url <your-backend-repo-url>
+   git config -f .gitmodules submodule.litefront.url  <your-frontend-repo-url>
    git submodule sync
    ```
 3. Set the meta-repo `origin` to your meta repo and push.

@@ -31,14 +31,15 @@ LiteStack/
 ├── package.json               # meta tooling: CodeGraph CLI (devDep) + codegraph:* scripts
 ├── .mcp.json                  # CodeGraph MCP server config (Claude Code)
 ├── .codegraph/                # CodeGraph index DB (git-ignored; rebuilt by codegraph:init)
-├── backend/                   # submodule → backend  (NestJS · Prisma · Mercurius GraphQL)
+├── backend/                   # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
 ├── frontend/                 # submodule → frontend (Vite · React 19 · URQL)
-└── .claude/skills/            # meta-skills + be-*/fe-* wrappers to the sub-project skills
+└── .claude/skills/            # meta-skills + fe-* wrappers to the frontend skills
 ```
 
-**Skills:** each sub-project keeps its own skills (in `<project>/.agents/skills/`). The
-meta-repo adds thin `be-*`/`fe-*` wrappers in `.claude/skills/` that delegate into the
-submodules, so opening the LiteStack root surfaces every skill in both opencode and Claude
+**Skills:** the frontend keeps its own skills (in `frontend/.agents/skills/`) and the
+meta-repo adds thin `fe-*` wrappers in `.claude/skills/` that delegate into it. The backend
+(liteend-go) ships no skills — backend work follows `backend/AGENTS.md`. Opening the
+LiteStack root surfaces every (frontend + meta) skill in both opencode and Claude
 Code. Plus two true cross-project skills: `full-stack-feature` and `commit`. See
 `AGENTS.md` → Skills.
 
@@ -122,9 +123,9 @@ Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
 
 ## Running the projects (separately)
 
-- **Backend** (`backend/`): `docker-compose up -d db redis` → `cp .env.example .env`
-  → `npm run db:migrations:apply` → `npm run start:dev` (GraphQL at `:4000/graphql`,
-  Altair IDE at `:4000/altair`).
+- **Backend** (`backend/`, liteend-go — Go): `cp .env.example .env` → `task start:dev`
+  (brings up Docker db+redis, runs goose migrations at startup, hot-reload; GraphQL at
+  `:4000/graphql` + gqlgen playground). First-time full onboarding: `task setup`.
 - **Frontend** (`frontend/`): `cp .env.example .env` → `npm run gen` (backend must be up)
   → `npm run start:dev` (serves at `:3000`).
 
