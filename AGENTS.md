@@ -172,18 +172,21 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsig
 
 ## Reading the frontend at runtime (agents can't see a browser)
 
-You have no eyes on a browser console. To inspect what the **frontend** does at runtime —
-console output, uncaught errors, failed requests — run the **agent log harness** from
-inside `frontend/`:
+You have no eyes on a browser. Two headless harnesses make the **frontend** observable as
+files you can read — run them from inside `frontend/`:
 
 ```bash
-cd frontend && npm run test:e2e:logs
+cd frontend && npm run test:e2e:logs      # what it DOES: console, errors, network
+cd frontend && npm run test:e2e:screens   # what it LOOKS like: PNGs per route × theme × viewport
 ```
 
-Then read `frontend/test-results/frontend-logs.{log,json}`. Full details, plus how the
-theme + i18n switchers work (and the daisyUI-semantic-tokens rule that keeps dark mode
-working), are in **`frontend/AGENTS.md`** → "Frontend observability for AI agents" and
-"Theming & i18n".
+Then read `frontend/test-results/frontend-logs.{log,json}` and the PNGs in
+`frontend/test-results/screenshots/*.png` (the Read tool renders images — don't open a
+live browser). Screenshots come in both daisyUI themes, so comparing `*-cmyk-*` vs
+`*-dark-*` catches the hardcoded-color dark-mode bug. Full triage workflow (symptom →
+cause → fix) is in **`frontend/docs/DEBUGGING.md`**; how the theme + i18n switchers work
+(and the daisyUI-semantic-tokens rule) is in **`frontend/AGENTS.md`** → "Frontend
+observability for AI agents" and "Theming & i18n".
 
 ## Skills — catalog and how to use them
 
