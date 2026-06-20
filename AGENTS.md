@@ -168,10 +168,13 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsig
   business logic test-first; the gates make it stick. Frontend: every `shared/ui`
   component is a story+test "trio" (enforced by `npm run check`), and coverage
   floors gate `npm run test:cov`. Backend: per-package coverage floors in
-  `.testcoverage.yml` gate `task test:cov`. Both run in **CI**
-  (`.github/workflows/ci.yml`), so they cannot be bypassed with `--no-verify`.
-  Details: `frontend/AGENTS.md` → "Component & test discipline";
-  `backend/AGENTS.md` → "TDD discipline". Ratchet coverage floors up, never down.
+  `.testcoverage.yml` gate `task test:cov`. **There is no CI** — these gates live
+  entirely in the submodules' git hooks (pre-commit/pre-push), so `--no-verify`
+  bypasses them locally. Don't. Details: `frontend/AGENTS.md` → "Component & test
+  discipline"; `backend/AGENTS.md` → "TDD discipline". Ratchet coverage floors up, never down.
+- **English-only in the repo.** All code, comments, identifiers, commit messages,
+  and docs are written in English. (Chatting with the user follows the user's
+  language — see "How to talk to the user" — but anything committed to the repo is English.)
 - Formatters differ and must not be shared: `backend` = gofumpt + golangci-lint (Go);
   `frontend` = Biome (double quotes). Never copy formatting/lint config across the boundary.
 - Run the projects **separately**, each per its own `AGENTS.md`. There is no root
@@ -250,7 +253,7 @@ follow the real `SKILL.md` there.
 | `new-project` | Bootstrap a brand-new product as a meta+submodules pair in DERIVED mode: scaffold → repoint submodules to the team's repos → rename identity → install → wire env → first commit. Orchestrates the `scripts/*.sh` backbone. |
 
 First-time setup of an existing clone is `scripts/setup.sh` (see `README.md`). Team process —
-repo model, branch/PR flow, CI, agent parity — is in `docs/TEAM.md`.
+repo model, branch/PR flow, quality gates (hooks, no CI), agent parity — is in `docs/TEAM.md`.
 
 ## Creating & updating skills (IMPORTANT — unusual structure)
 

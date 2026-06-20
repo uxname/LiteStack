@@ -26,7 +26,8 @@ skill and `AGENTS.md → Deriving a new project`.
 
 Because backend and frontend are separate git repos, a cross-cutting change is several PRs:
 
-1. Branch in the submodule(s) that change; open a PR there; merge after CI + review.
+1. Branch in the submodule(s) that change; open a PR there; merge after review (the
+   quality gates run in that submodule's git hooks — there is no CI).
 2. In the meta-repo, branch, bump the submodule pointer(s) to the merged commits, open a
    meta PR. **Never** point the meta at an unmerged/unpushed submodule commit.
 3. Use the meta **`/commit`** skill — it enforces submodule-first ordering and the right push
@@ -35,15 +36,21 @@ Because backend and frontend are separate git repos, a cross-cutting change is s
 A change touching both sides: backend PR first (the frontend generates types from the live
 backend schema), then frontend PR, then the meta pointer bump. See the `full-stack-feature` skill.
 
-## CI
+## Quality gates (no CI)
 
-`.github/workflows/ci.yml` runs on the meta-repo: it checks out submodules recursively (which
-validates the pinned pointers resolve) and runs each submodule's own quality gate in its own
-job — **backend (liteend-go) = `task check` + `task test`** (Go), **frontend = `npm run check`**.
-Each submodule also has its own lefthook hooks — backend pre-commit `task check` / pre-push
-`task test:all`; frontend pre-commit `npm run check` / pre-push `check` + `test:all` — never
-bypass with `--no-verify`. Frontend e2e tests are hermetic (mock auth + stubbed GraphQL), so
-they need no live backend.
+There is **no CI service** — LiteStack is a template and forks may run on any host (GitLab,
+Gitea, Drone, …), so the entire quality guarantee lives in each submodule's lefthook git hooks.
+Fast checks run on `pre-commit`; the slow, full gate runs on `pre-push` (the last line before
+code leaves the machine).
+
+| Repo | pre-commit | pre-push |
+|---|---|---|
+| **backend** (Go) | `task check` (codegen-freshness, build, lint, arch, deadcode, vuln, fmt, tidy, secrets) | `task test:cov` (unit + integration via testcontainers + coverage floors; needs Docker) |
+| **frontend** (npm) | `npm run verify:commit` (`check` + gitleaks `secrets`) | `npm run verify:push` (`verify:commit` + `test:cov` + Playwright E2E + Storybook build) |
+
+Hooks are thin — they just call those npm/task scripts, so you can run the exact same gate by
+hand. `--no-verify` skips them and nothing else will catch it, so don't. Frontend E2E tests are
+hermetic (mock auth + stubbed GraphQL), so they need no live backend.
 
 ## Agent tooling — Claude Code & opencode parity
 
