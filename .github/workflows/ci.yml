@@ -2,9 +2,12 @@ name: CI
 
 # Meta-repo CI. The meta-repo owns no application code — it pins two submodules. This
 # workflow checks out the pinned commits (which validates the submodule pointers resolve)
-# and runs each submodule's own quality gate. A broken pointer or a submodule that fails
-# its gate fails the build. The two submodules use different stacks, so each has its own
-# job: the backend (liteend-go) is Go + `task`; the frontend (litefront) is Node + npm.
+# and runs each submodule's own quality gate AND its test safety net. A broken pointer, a
+# failing gate, a coverage drop, or a failing test/E2E fails the build. The test safety net
+# (coverage gates + E2E) runs here, in CI — not only in the bypassable local pre-push hook —
+# so it cannot be skipped with `git push --no-verify`. The two submodules use different
+# stacks, so each has its own job: the backend (liteend-go) is Go + `task`; the frontend
+# (litefront) is Node + npm.
 
 on:
   push:
@@ -14,7 +17,7 @@ on:
 
 jobs:
   backend:
-    name: backend — task check
+    name: backend — check + tests + coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (with submodules)
@@ -36,18 +39,22 @@ jobs:
 
       # Dev tools (sqlc, gqlgen, golangci-lint, gofumpt, govulncheck) are pinned in the
       # `tool` block of go.mod and invoked via `go tool` — no separate install needed.
-      # `task check` is Docker-free: gen:check, tidy:check, fmt:check, build, lint, vuln,
-      # secrets. (`task test:all` needs testcontainers/Docker and is left to pre-push.)
+      # `task check` is Docker-free: gen:check, tidy:check, fmt:check, build, lint, arch,
+      # deadcode, vuln, secrets.
       - name: Quality gate
         working-directory: backend
         run: task check
 
-      - name: Unit tests
+      # `task test:cov` runs unit + integration tests (testcontainers → Postgres/Redis,
+      # needs Docker — preinstalled on ubuntu-latest) and enforces the coverage thresholds
+      # in .testcoverage.yml (total + per-package floors). This is the backend's test
+      # safety net, now non-bypassable in CI.
+      - name: Tests + coverage gate
         working-directory: backend
-        run: task test
+        run: task test:cov
 
   frontend:
-    name: frontend — npm run check
+    name: frontend — check + unit/coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (with submodules)
@@ -66,6 +73,49 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # Quality gate: biome, ts, knip (dead code), steiger (FSD boundaries), stylelint,
+      # and the component-trio check (every shared/ui component ships a story + test).
       - name: Quality gate
         working-directory: frontend
         run: npm run check
+
+      # Unit/component tests + the Vitest coverage thresholds (vite.config.ts). The test
+      # safety net, enforced in CI rather than only in the pre-push hook.
+      - name: Tests + coverage gate
+        working-directory: frontend
+        run: npm run test:cov
+
+  frontend-e2e:
+    name: frontend — e2e (playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      # The E2E suite mocks GraphQL (page.route) and uses mock auth (VITE_MOCK_AUTH=true,
+      # set by the Playwright webServer command), so it needs NO backend — only a built
+      # SPA. A .env (copied from the committed example) satisfies the build's env contract.
+      - name: Seed .env for the build
+        working-directory: frontend
+        run: cp .env.example .env
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (chromium)
+        working-directory: frontend
+        run: npm run test:e2e:prod

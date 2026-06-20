@@ -164,6 +164,14 @@ Infra ports (backend): PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsig
   run the right one before declaring done. On the frontend never run `lint` + `ts:check`
   separately (skips knip/steiger/biome-fix and breaks the lefthook hook); the backend's
   `task check` is the single Go gate (codegen-freshness, build, lint, vuln, fmt, tidy).
+- **TDD on both sides — tests are non-optional and machine-enforced.** Write new
+  business logic test-first; the gates make it stick. Frontend: every `shared/ui`
+  component is a story+test "trio" (enforced by `npm run check`), and coverage
+  floors gate `npm run test:cov`. Backend: per-package coverage floors in
+  `.testcoverage.yml` gate `task test:cov`. Both run in **CI**
+  (`.github/workflows/ci.yml`), so they cannot be bypassed with `--no-verify`.
+  Details: `frontend/AGENTS.md` → "Component & test discipline";
+  `backend/AGENTS.md` → "TDD discipline". Ratchet coverage floors up, never down.
 - Formatters differ and must not be shared: `backend` = gofumpt + golangci-lint (Go);
   `frontend` = Biome (double quotes). Never copy formatting/lint config across the boundary.
 - Run the projects **separately**, each per its own `AGENTS.md`. There is no root
