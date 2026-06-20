@@ -85,6 +85,13 @@ jobs:
         working-directory: frontend
         run: npm run test:cov
 
+      # Storybook (Ladle) build gate: the Ladle config has its own Vite config that
+      # is easy to break silently (plugin/version drift, missing styles). A build is
+      # cheap (~seconds) and fails fast if stories or the config regress.
+      - name: Storybook build gate
+        working-directory: frontend
+        run: npm run storybook:build
+
   frontend-e2e:
     name: frontend — e2e (playwright)
     runs-on: ubuntu-latest
