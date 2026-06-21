@@ -1,8 +1,10 @@
 # Env contract — backend ↔ frontend
 
 The two submodules are wired together through environment variables that **must agree**.
-A mismatch fails silently at runtime (401s, CORS blocks, broken GraphQL codegen) rather than
-at startup. `scripts/doctor.sh` checks these automatically — run it after editing any `.env`.
+Most mismatches surface at runtime (401s, CORS blocks, broken GraphQL codegen), but two cases
+now **fail fast at startup**: an empty `CORS_ORIGIN` in production (backend refuses to boot)
+and any missing required `VITE_*` var (frontend throws on its first render). `scripts/doctor.sh`
+checks these pairs automatically — run it after editing any `.env`.
 
 Source of truth: `backend/.env` and `frontend/.env` (each falls back to its `.env.example`).
 
