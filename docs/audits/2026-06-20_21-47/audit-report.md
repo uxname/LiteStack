@@ -1,138 +1,61 @@
 # Полный аудит бэкенда — 2026-06-20 21:47
 
 **Объект:** `backend/` — Go-порт LiteEnd (GraphQL API + OIDC-аутентификация, загрузка файлов, фоновые очереди asynq, Postgres + Redis).
-**Метод:** 16 направлений аудита, затем верификация находок по коду и мета-контроль качества.
-**Результат верификации:** 30 находок FAIL подтверждены по коду, **0 false positives**.
+
+> Этот документ сокращён до **остатка работы**. Все исправленные (✅) и принятые (⚪) находки удалены; PER-04 и PER-05 сознательно откачены как over-engineering для MVP+ и backlog-ом не являются.
+> Легенда: ⏳ осталось (backlog) · ◐ частично · 🔎 требует ручной проверки.
 
 ---
 
-## Компоненты системы
+## ⏳ Backlog (осталось сделать)
 
-| Компонент | Путь | Внешние зависимости |
-|-----------|------|---------------------|
-| Composition root | `internal/app` | — |
-| GraphQL-транспорт | `internal/graph` | — |
-| Аутентификация | `internal/auth`, `internal/middleware/basicauth.go` | OIDC-провайдер (JWKS) |
-| Загрузка файлов | `internal/upload` | диск `./data/uploads` |
-| Фоновые задачи | `internal/queue` | Redis (asynq) |
-| Профиль (домен) | `internal/profile` | Postgres, Redis |
-| База данных | `internal/db` | Postgres (pgx pool) |
-| Кэш/очередь | `internal/redis` | Redis |
-| Резервные копии | `internal/backup`, `cmd/dbbackup`, `cmd/dbrestore` | Postgres, диск |
-| Конфигурация/middleware/health | `internal/config`, `internal/middleware`, `internal/health` | — |
+| Check ID | Sev | Что осталось | Файл |
+|----------|-----|--------------|------|
+| PER-01b | 🟡 | Batch-вставка метаданных загрузок (до 10 отдельных INSERT в цикле) | `internal/upload/service.go:176-187` |
+| MATRIX-DISK | 🟠 | Обработка ENOSPC: понятная ошибка + алерт по диску | `internal/upload/service.go:120-124` |
+| API-03 | 🟡 | Единая модель ошибок REST/GraphQL (строковый `code` + `requestId` в REST) | `internal/httperr/httperr.go` |
+| API-07 | 🟡 | Стратегия версионирования REST/GraphQL | `internal/app/app.go:135-139`, `internal/devtools/openapi.yaml:8` |
+| API-01 | 🟢 | Единый success-конверт REST | `internal/health/health.go`, `internal/upload/handler.go` |
+| OWA-04 | 🟡 | `sslmode=require` для БД в prod / убрать dev-дефолты admin/admin | `internal/config/config.go:47-48,57` |
+| SEC-06 | 🟡 | Убрать дефолтный bcrypt-фоллбэк в Caddyfile (сейчас смягчён привязкой к 127.0.0.1) | `Caddyfile:15` |
+| MATRIX-START | 🟠 | Ретраи зависимостей на старте (сейчас осознанный fail-fast) | `internal/app/app.go:48-83` |
+| MATRIX-REDIS | 🟠 | Деградация при падении Redis (таймауты pub/sub, контроль очереди) | `internal/profile/pubsub.go:44-67`, `internal/queue/queue.go:66-80` |
+| MATRIX-BACKUP | 🟠 | Offsite-копии + мониторинг свежести бэкапов | `internal/backup/backup.go:42-58`, `docker-compose.yml` |
+| TST-02 | 🟠 | CI-гейт (`task test:cov` на каждый PR, нельзя обойти `--no-verify`) | `lefthook.yml:13`, CI отсутствует |
+| DEP-01 | 🟡 | Пин версий образов дашбордов (pgweb/redisinsight/asynqmon на `:latest`) | `docker-compose.yml:109,123,139` |
+| DEP-12 | 🟡 | Read-only root FS (+ tmpfs) для stateless-сервисов | `docker-compose.yml` |
 
-**Общая оценка:** кодовая база зрелая и идиоматичная. Архитектура (go-arch-lint → 0 нарушений), именование, YAGNI, защита от path-traversal, параметризация SQL, graceful shutdown, таймауты — на высоком уровне. Критических дефектов безопасности нет; основной риск — один каскадный сценарий устойчивости (исчерпание пула БД).
+**Итог backlog:** 13 находок — 🟠 5 · 🟡 6 · 🟢 2.
 
----
+### Требует ручной проверки (🔎)
 
-## Компонент: База данных
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| MATRIX-PG | Защита от исчерпания пула | ❌ FAIL 🔴 | `internal/db/pool.go:28` — пул 10 соединений, есть `ConnectTimeout`, но нет `statement_timeout` | **1. Задать `statement_timeout` в конфиге пула / DSN** \\ 2. Добавить `MaxConnLifetime` + `HealthCheckPeriod` \\ 3. Мониторинг занятости пула |
-| ERR-08 | Backoff с jitter | ❌ FAIL 🟡 | `internal/db/migrate.go:46` — `delay *= 2` без jitter (thundering herd на репликах) | Добавить случайный jitter к задержке |
-
-## Компонент: Загрузка файлов
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| BUG-02 / CON-06 | Корректное завершение записи | ❌ FAIL 🟠 | `internal/upload/service.go:229-261` — при `<-ctx.Done()` функция выходит, `defer f.Close()` закрывает файл, а отсоединённая горутина продолжает `io.Copy(f, body)` в закрытый дескриптор → утечка горутины + reader | **1. Закрывать файл внутри горутины после `io.Copy`, не через `defer` в `writeFile`** \\ 2. Прокинуть отмену в `io.Copy` |
-| PER-01b | Batch-вставка метаданных | ❌ FAIL 🟡 | `internal/upload/service.go:176` — до 10 отдельных `INSERT` в цикле | Batch-вставка / транзакция |
-| MATRIX-DISK | Обработка переполнения диска | ❌ FAIL 🟠 | `internal/upload/service.go:120-124` — ENOSPC → общий 500 без понятной причины и алерта | Проверка свободного места, понятная ошибка, алерт |
-
-## Компонент: GraphQL-транспорт
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| ERR-02 / API-05 | Маскировка ошибок наружу | ❌ FAIL 🟠 | `internal/graph/errors.go:36-41` — ветка default отдаёт сырой `err.Error()`; `internal/profile/service.go:160` заворачивает текст ошибки БД дословно | **1. В production маскировать ошибки не-auth типов; отдавать generic message + requestId** \\ 2. Логировать детали на сервере |
-| VAL-02 | Лимиты длины и формат полей | ❌ FAIL 🟠 | `internal/graph/schema.graphqls:39-46` — `displayName/bio/avatarUrl` без лимита длины; скаляр `URL` забинден на `graphql.String` (формат не проверяется); пишется в TEXT (`internal/profile/service.go:152-166`) | **1. Добавить валидацию длины/формата в резолвере или сервисе** \\ 2. Реальный кастомный URL-скаляр |
-| LOG-02 | PII в логах | ❌ FAIL 🟠 | `internal/graph/logging.go:50` — логируются все переменные операции; `displayName`, `bio` пишутся открыто на каждый `updateProfile` | Не логировать значения переменных мутаций / редактировать PII |
-| LOG-03 | Рекурсивная редакция секретов | ❌ FAIL 🟠 | `internal/graph/logging.go:57-69` и `internal/logger/logger.go:47-52` редактируют только верхний уровень; секрет в `{input:{token:...}}` попадёт в лог (подтверждено тестом `logging_test.go:21`) | **1. Сделать редакцию рекурсивной** \\ 2. Вынести allowlist ключей в один источник (сейчас дублируется) |
-| VAL-05 | Лимит сложности/глубины запроса | ❌ FAIL 🟡 | `internal/graph/handler.go` — нет `FixedComplexityLimit`/лимита глубины, интроспекция включена | Включить ограничение сложности; отключить интроспекцию в prod |
-| API-03 | Единые конвенции ошибок | ❌ FAIL 🟡 | REST-конверт `{statusCode, message}` (`internal/httperr/httperr.go`) без `code`/`requestId`, в отличие от GraphQL | Унифицировать модель ошибок |
-| API-07 | Версионирование API | ❌ FAIL 🟡 | REST без версионного префикса; политика эволюции не зафиксирована | Зафиксировать стратегию версионирования |
-| API-01 | Единый success-конверт REST | ❌ FAIL 🟢 | `/health` → `{status,checks}`, `/upload` → голый массив | По желанию — унифицировать |
-
-## Компонент: Аутентификация
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| MATRIX-OIDC | Поведение при сбое провайдера | ❌ FAIL 🟠 | `internal/auth/middleware.go:95-98` — при сетевой ошибке JWKS `authenticate` возвращает nil → юзер молча становится анонимом (401), неотличимо от протухшего токена | **1. При ошибке провайдера отдавать 503, а не 401** \\ 2. Различать «провайдер недоступен» и «токен невалиден» |
-| LOG-08 | Security-трейл аутентификации | ❌ FAIL 🟡 | `internal/auth/middleware.go:96` — неудачная проверка токена логируется только на `Debug` (невидима при prod-уровне info) | Логировать неуспех аутентификации на Warn/Info |
-
-## Компонент: Конфигурация и секреты
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| OWA-05 | Безопасный CORS | ❌ FAIL 🟠 | `internal/config/config.go:18` (без дефолта) + `internal/server/server.go:45,48` — пустой `CORS_ORIGIN` → go-chi/cors включает allow-all при `AllowCredentials:true` | **1. Требовать непустой `CORS_ORIGIN` в prod (fail-fast)** \\ 2. Безопасный дефолт |
-| OWA-04 | Защита credentials | ❌ FAIL 🟡 | `internal/config/config.go:57` `sslmode=disable`; дефолты `ADMIN_USER/PASSWORD=admin/admin` (`config.go:47-48`) | TLS к БД в prod; убрать дефолтные admin-учётки |
-| SEC-04 | Нет секретов в VCS | ❌ FAIL 🟡 | `.env.example:45` — реальный bcrypt-хеш `ADMIN_PASSWORD_HASH` (хеш пароля «admin»), а не плейсхолдер | Заменить на явный плейсхолдер |
-| SEC-06 | Нет дефолтных паролей | ❌ FAIL 🟡 | `Caddyfile:15` — дефолт-фоллбэк с тем же хешем + комментарии admin/admin (смягчено привязкой портов к 127.0.0.1) | Убрать дефолт; требовать заданный хеш |
-
-## Компонент: Устойчивость инфраструктуры (app / redis / backup)
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| MATRIX-START | SPOF на старте | ❌ FAIL 🟠 | `internal/app/app.go:48-83` — `Build()` падает при первой недоступной зависимости (PG/Redis) → рестарт-цикл | Осознанный fail-fast; рассмотреть ретраи на старте |
-| MATRIX-REDIS | Деградация при падении Redis | ❌ FAIL 🟠 | `internal/profile/pubsub.go:44`, `internal/queue/queue.go:66` — кэш/rate-limit fail-open ✅, но pub/sub-подписки могут повиснуть, очередь не принимает задачи | Таймауты на pub/sub; контроль доступности очереди |
-| MATRIX-BACKUP | Надёжность бэкапов | ❌ FAIL 🟠 | `internal/backup/backup.go`, `docker-compose.yml` — один контейнер, дампы на том же хосте, провал лишь логируется; покрытие тестами 0% | Offsite-копии, мониторинг успешности, тест восстановления |
-
-## Компонент: Здоровье и наблюдаемость (health)
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| ERR-02 | Нет утечки деталей в /health | ❌ FAIL 🟠 | `internal/health/health.go:86` — сырой `err.Error()` ping БД/Redis в JSON публичного `/health` (без auth, `app.go:135`) | Generic-статус наружу, детали — в лог |
-| PER-04 | Лёгкий health-эндпоинт | ❌ FAIL 🟡 | `internal/health/health.go:91-93` — `runtime.ReadMemStats()` (stop-the-world) на каждый `GET /health` | Кэшировать метрики фоновым тикером |
-| PER-05 | Параллельные проверки | ❌ FAIL 🟢 | `internal/health/health.go` — db-ping и redis-ping последовательно | Выполнять параллельно |
-
-## Компонент: Тесты, деплой, качество
-
-| Check ID | Проверка | Статус | Доказательство | Решение |
-|----------|----------|--------|----------------|---------|
-| TST-02 | Серверный гейт качества | ❌ FAIL 🟠 | Нет CI-конфигов; всё держится на локальных lefthook-хуках (обходятся `--no-verify`). `coverage.out` снят без `-tags=integration` (total 3.5%) — вводит в заблуждение | **1. Добавить CI (GitHub/GitLab), запускающий `task check` + `task test:cov`** \\ 2. Не коммитить неполный coverage.out |
-| DEP-11 | Лимиты ресурсов контейнеров | ❌ FAIL 🟠 | `docker-compose.yml` — ни у одного сервиса нет `deploy.resources.limits`/`mem_limit`/`cpus` | Задать лимиты памяти/CPU всем сервисам |
-| TST-08 | Стабильность тестов | ❌ FAIL 🟡 | `test/integration_test.go:205` — фиксированный `time.Sleep(300ms)` перед мутацией в тесте WS-подписки | Заменить на `require.Eventually` |
-| DEP-01 | Pinned-версии образов | ❌ FAIL 🟡 | `sosedoff/pgweb:latest`, `redis/redisinsight:latest`, `hibiken/asynqmon:latest` не запинены (prod-образы — запинены ✅) | Запинить версии дашбордов |
-| DEP-12 | Read-only root FS | ❌ FAIL 🟡 | Ни у одного сервиса нет `read_only: true` | Включить read-only + tmpfs где возможно |
-| ARC-05 | Единый источник дефолтов | ❌ FAIL 🟢 | `cmd/server/main.go:44` — `healthcheck()` читает `os.Getenv("PORT")` напрямую, дублируя дефолт `"4000"` | Обоснованно (отдельный процесс до init config) — можно оставить |
-| NAM-05 | Константы вместо литералов | ❌ FAIL 🟢 | `internal/health/health.go:51`, `cmd/server/main.go:48`, `internal/graph/handler.go:50,52` — инлайн-литералы | Вынести в `constants.go` |
+| Check ID | Что проверить | Файл |
+|----------|---------------|------|
+| OWA-09 | CSRF/CSWSH: при переходе на cookie-аутентификацию (вкл. WS `CheckOrigin: true`) появится риск | `internal/graph/handler.go` |
+| VAL-06 | Неявный coercion в кастомных скалярах `URL`/`JSON`/`DateTime` (забинжены без своих unmarshal-проверок) | `gqlgen.yml` |
+| DEP-09 | Фактический prod-режим окружения (`OIDC_MOCK_ENABLED` в реальном prod-`.env`) | `.env` (вне VCS) |
+| TST-09 | Snapshot-политика — неприменима (Go, нет golden-файлов); проверка для полноты | — |
 
 ---
 
-## Сводка
+## Сводка остатка по компонентам
 
-| Компонент | ❌ FAIL 🔴 | ❌ FAIL 🟠 | ❌ FAIL 🟡🟢 | Итого FAIL |
-|-----------|:---:|:---:|:---:|:---:|
-| База данных | 1 | 0 | 1 | 2 |
-| Загрузка файлов | 0 | 2 | 1 | 3 |
-| GraphQL-транспорт | 0 | 4 | 4 | 8 |
-| Аутентификация | 0 | 1 | 1 | 2 |
-| Конфигурация и секреты | 0 | 1 | 3 | 4 |
-| Устойчивость инфраструктуры | 0 | 3 | 0 | 3 |
-| Здоровье/наблюдаемость | 0 | 1 | 2 | 3 |
-| Тесты/деплой/качество | 0 | 2 | 5 | 7 |
-| **ИТОГО** | **1** | **14** | **17** | **32** |
-
-> Примечание: ERR-02 и API-05 — одна и та же утечка ошибок, учтена в двух компонентах (graph + health) по месту проявления. Уникальных дефектов — 30 (подтверждено `audit-verify`).
+| Компонент | ⏳ 🟠 | ⏳ 🟡🟢 | Итого backlog |
+|-----------|:---:|:---:|:---:|
+| Загрузка файлов (PER-01b, MATRIX-DISK) | 1 | 1 | 2 |
+| GraphQL/REST-контракты (API-01/03/07) | 0 | 3 | 3 |
+| Конфигурация и секреты (OWA-04, SEC-06) | 0 | 2 | 2 |
+| Устойчивость инфраструктуры (MATRIX-START/REDIS/BACKUP) | 3 | 0 | 3 |
+| Тесты/деплой (TST-02, DEP-01, DEP-12) | 1 | 2 | 3 |
+| **ИТОГО** | **5** | **8** | **13** |
 
 ---
 
-## Критические риски (🔴)
+## Приоритет (остаток)
 
-### 🔴 MATRIX-PG — Исчерпание пула соединений БД
-**Файл:** `internal/db/pool.go:28`
-**Проверка:** защита от каскадного отказа на уровне БД.
-**Доказательство:** пул ограничен 10 соединениями, задан `ConnectTimeout`, но **отсутствует `statement_timeout`**. Один зависший или тяжёлый SQL-запрос держит соединение бессрочно; несколько таких вычерпывают весь пул — и всё приложение начинает отдавать ошибки/таймауты, хотя сама БД формально жива. Это главный реальный сценарий каскадного отказа.
-**Решение:** задать `statement_timeout` (в DSN или `pool.Config`), добавить `MaxConnLifetime` и `HealthCheckPeriod`, настроить мониторинг занятости пула.
-
----
-
-## Приоритет исправлений
-
-1. **🔴 Сейчас:** `statement_timeout` для пула БД (`pool.go:28`).
-2. **🟠 Скоро (безопасность/данные):** маскировка ошибок наружу (ERR-02/API-05), утечка PII и нерекурсивная редакция в логах (LOG-02/LOG-03), CORS allow-all (OWA-05), лимиты полей профиля (VAL-02), баг записи в закрытый файл (BUG-02).
-3. **🟠 Устойчивость/эксплуатация:** OIDC → 503 при сбое (MATRIX-OIDC), лимиты ресурсов контейнеров (DEP-11), CI-гейт (TST-02), мониторинг/offsite бэкапов, проверка места на диске.
-4. **🟡🟢 Бэклог:** ReadMemStats на /health, batch-вставка метаданных, jitter в backoff, pinned-версии дашбордов, read-only FS, версионирование API, константы вместо литералов, flaky-тест.
+1. **🟠 Устойчивость/эксплуатация:** ENOSPC на загрузке (MATRIX-DISK), деградация при падении Redis (MATRIX-REDIS), ретраи зависимостей на старте (MATRIX-START), offsite/мониторинг бэкапов (MATRIX-BACKUP), CI-гейт (TST-02).
+2. **🟡 Бэклог:** `sslmode=require` + удаление dev-дефолтов admin/admin (OWA-04), bcrypt-фоллбэк в Caddyfile (SEC-06), единая модель ошибок REST/GraphQL (API-03), версионирование API (API-07), пин образов дашбордов (DEP-01), read-only FS (DEP-12), batch-вставка метаданных (PER-01b).
+3. **🟢 По желанию:** единый success-конверт REST (API-01).
 
 ## Рекомендация по baseline
-Осознанные trade-off'ы (fail-open rate-limit, WebSocket `CheckOrigin: true`, dev-дефолт admin/admin под привязкой к 127.0.0.1) стоит занести в `docs/audit-baseline.yml` с полями `type`/`expires`/`accepted_by`, чтобы при следующих прогонах они не всплывали как новые находки.
+Осознанные trade-off'ы (fail-open rate-limit, WebSocket `CheckOrigin: true`, dev-дефолт admin/admin под привязкой к 127.0.0.1, откат PER-04/PER-05) стоит занести в `docs/audit-baseline.yml` с полями `type`/`expires`/`accepted_by`, чтобы при следующих прогонах они не всплывали как новые находки.

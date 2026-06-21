@@ -1,29 +1,9 @@
 # Audit Report: Boundary Data Validation — 2026-06-20 21:47
 
-Runtime: **Go 1.26** (chi router, gqlgen GraphQL, go-oidc). Чеклист адаптирован под Go (JS-специфичные пункты помечены или сопоставлены с Go-эквивалентами).
+> Невыполненная работа по аудиту валидации. Закрытые/принятые находки удалены.
 
-Baseline: пуст (`docs/audit-baseline.yml` отсутствует) — `⏸ ACCEPTED` не применялся.
+## Требует ручной проверки
 
-## Результаты
-
-| Check ID | Проверка | Статус | Уверенность | Доказательство | Решение | Исправлено |
-|----------|----------|--------|-------------|----------------|---------|------------|
-| VAL-01 | Все входящие данные (body, params, query) проходят schema-валидацию | ✅ PASS | High | GraphQL: типы и обязательность полей валидирует gqlgen-схема (`internal/graph/schema.graphqls`), идентичность — `auth.Require`/`RequireRole` в `schema.resolvers.go`. REST `/upload`: ручная проверка multipart, числа файлов, размера (`internal/upload/handler.go:31-99`). Path-param `/uploads/*` проверяется на traversal (`service.go:194-211`). | — | — |
-| VAL-02 | Строки имеют maxLength, числа — диапазон, enum-значения — whitelist | ❌ FAIL 🟠 | High | `internal/graph/schema.graphqls:39-46` поля `displayName`, `bio`, `avatarUrl` — без ограничения длины. Скаляр `URL` забинден на обычную строку (`gqlgen.yml`: `URL → graphql.String`), т.е. **формат URL не проверяется**. Значения идут напрямую в БД без проверки: `schema.resolvers.go:28-32` → `profile.Service.Update` (`internal/profile/service.go:152-166`) → колонки TEXT без лимита (`db/migrations/00001_init.sql:13-15`). Риск: загрузка мегабайтных строк (раздувание БД/кэша, потенциальный DoS), запись произвольной строки в поле «URL». | **1. Добавить maxLength и проверку URL в резолвере `UpdateProfile` (например `displayName` ≤ 100, `bio` ≤ 2000, `avatarUrl` через `url.ParseRequestURI` + лимит)** \\ 2. Перенести лимиты в слой `profile.Service.Update` (единая точка для всех вызывающих) \\ 3. Добавить `CHECK (char_length(...))` ограничения в миграции БД как защиту последнего рубежа | Нет |
-| VAL-03 | JSON.parse обёрнут в try/catch с последующей валидацией структуры | ✅ PASS | High | Прямого парсинга недоверенного JSON во входе нет (gqlgen парсит тело сам). Десериализация кэша профиля обрабатывает ошибку: `internal/profile/service.go` (`json.Unmarshal` → при ошибке лог + удаление ключа). `json.Marshal` ответа в `upload/handler.go:91` — исходящие данные. | — | — |
-| VAL-04 | Identity данные берутся из аутентифицированного контекста (не из user input) | ✅ PASS | High | `user.ID`/`user.OidcSub` берутся из `auth.Require(ctx)` (`schema.resolvers.go:24,68`), профиль кладётся в контекст только после проверки подписи токена OIDC (`auth/verifier.go:41-54`, `auth/middleware.go:94-104`). В `UpdateProfile` обновляется именно `user.ID` из контекста, не из body. Роли проверяются по `p.Roles` из БД (`auth/context.go:42-53`). Mass-assignment ограничен whitelist полей (`UpdateParams`). | — | — |
-| VAL-05 | Вложенные структуры и массивы ограничены (глубина, minItems/maxItems) | ❌ FAIL 🟡 | High | `internal/graph/handler.go:25-57` — у gqlgen-сервера НЕ настроены `extension.FixedComplexityLimit` и ограничение глубины запроса (поиск `ComplexityLimit/MaxDepth` по проекту — пусто). Интроспекция включена (`handler.go:51`). Текущая схема неглубокая, но без лимита злоумышленник может строить тяжёлые/глубоко-вложенные запросы. Защита есть только косвенная: `BodyLimit` 10 MiB (`server.go:51`) и rate-limit 100/мин (`middleware/ratelimit.go`). | **1. Добавить `srv.Use(extension.FixedComplexityLimit(N))` в `graph/handler.go` и сгенерировать веса сложности** \\ 2. Подключить middleware ограничения глубины запроса перед исполнением \\ 3. Оставить как есть, задокументировав, что схема плоская и защищена BodyLimit + rate-limit (приемлемо до роста схемы) | Нет |
-| VAL-06 | Валидатор не выполняет неявный coercion | 🔍 UNVERIFIED | Medium | `[⚡ dynamic]` — статически не подтверждается. gqlgen строго типизирует скаляры (String/ID/Boolean), неявного «false»→true нет в стандартных скалярах; кастомные `URL`/`JSON`/`DateTime` забинжены без своих unmarshal-проверок. Явного нарушения не найдено. | — | — |
-| VAL-07 | Prototype pollution: merge/assign с user input фильтрует `__proto__` и пр. | ✅ PASS | High | Неприменимо к Go: нет прототипного наследования и динамического `Object.assign`/`_.merge` с пользовательскими ключами. Десериализация идёт в строго типизированные структуры (sqlc/model). Класс уязвимости отсутствует. | — | — |
-| VAL-08 | Загрузка файлов: MIME по содержимому, имя санитизировано, размер ограничен | ✅ PASS | High | MIME проверяется по содержимому (sniff первых 512 байт + `http.DetectContentType`), а не по заголовку клиента (`upload/service.go:94-103`); allowlist только image/png,jpeg,gif,webp (`service.go:44-49`). Имя файла НЕ используется на диске — генерируется UUID + расширение (`service.go:113-115`). Размер ограничен: `io.LimitReader(max+1)` (`handler.go:62`) + повторная проверка `UploadMaxFileSize` 5 MiB (`service.go:125-128`), число файлов ≤ 10 (`handler.go:55-59`). Path-traversal при отдаче закрыт (`service.go:194-211`). | — | — |
-
-## Дополнительные наблюдения (вне строгого чеклиста)
-
-- **Конфигурация при старте (VAL-01 для config)**: `internal/config/config.go` использует теги `env:"...,required"` для критичных переменных (`DATABASE_PASSWORD`, `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URI`) и явный guard `OIDC_MOCK_ENABLED` запрещён в production (`config.go:78-80`). Это адекватная валидация старта. Не FAIL.
-- Дефолтные `ADMIN_USER`/`ADMIN_PASSWORD` = `admin`/`admin` (`config.go:47-48`) — относится к аудиту секретов/деплоя, не к валидации границ. Здесь только отмечено.
-- WebSocket `CheckOrigin` всегда возвращает `true` (`graph/handler.go:38`) — относится к CSRF/CORS (audit-owasp), не к валидации данных. Аутентификация подключения при этом выполняется корректно через `AuthenticateCreds`.
-
-## Audit Coverage
-Проверено: internal/upload/**, internal/auth/**, internal/config/**, internal/graph/resolver/**, internal/graph/handler.go, internal/graph/schema.graphqls, internal/server/server.go, internal/middleware/** (ratelimit, basicauth, recover/BodyLimit), internal/profile/service.go, db/migrations/00001_init.sql, gqlgen.yml
-Пропущено: internal/graph/generated/** (сгенерированный код), *_test.go, internal/backup/**, internal/health/**, internal/devtools/** (только частично), internal/db/sqlc/** (сгенерированный код)
-Файлов проверено: ~18 | Пропущено: ~25 (генерированные/тесты/нерелевантные)
+| Check ID | Проверка | Доказательство |
+|----------|----------|----------------|
+| VAL-06 | Валидатор не выполняет неявный coercion | `[⚡ dynamic]` — статически не подтверждается. gqlgen строго типизирует скаляры (String/ID/Boolean), неявного «false»→true нет в стандартных скалярах; кастомные `URL`/`JSON`/`DateTime` забинжены без своих unmarshal-проверок. Явного нарушения не найдено — требует ручной проверки кастомных скаляров. |
