@@ -150,11 +150,24 @@ gqlgen 0.17.94 dropped its gorilla adapter; the transport moved to
 
 ## Open — P2
 
-6. **URQL client is rebuilt on every silent token renew.**
+6. **The production image ignores the lockfile.** `frontend/Dockerfile:14` runs
+   `npm install --legacy-peer-deps`, not `npm ci`, so the image may resolve a
+   dependency tree that is not in `package-lock.json` and that no gate ever ran.
+   `--legacy-peer-deps` additionally silences exactly the peer conflicts that keep
+   `graphql` pinned at 16 — so the container can be built on the combination the
+   local suite refuses. Switch to `npm ci` (with `--legacy-peer-deps` only if a real
+   conflict demands it) and verify with `docker compose build`.
+7. **SSR failures never reach Sentry.** `frontend/src/server.ts:33` logs the caught
+   render error with `console.error` and returns a bare 500. `initSentry()` runs
+   client-side only (`client.tsx`), so the one class of error that takes the whole
+   page down is the one class that is invisible in production. There is also no
+   `process.on('unhandledRejection')` on the server. Report it from the server
+   handler (`@sentry/node`, or forward it into the client DSN).
+8. **URQL client is rebuilt on every silent token renew.**
    `frontend/src/app/bootstrap/AppProviders.tsx` memoises on `auth.user?.access_token`,
    so each renew drops the whole graphcache, re-issues every query and tears down
    WS subscriptions. Keep one client and read the token per request.
-7. **Layer rules permit what the docs forbid.** `backend/.go-arch-lint.yml` grants
+9. **Layer rules permit what the docs forbid.** `backend/.go-arch-lint.yml` grants
    `transport → infrastructure`, so a resolver can run SQL straight past the domain
    (`depguard`'s `files` do not cover `internal/graph/**`), and `domain →
    infrastructure` is allowed and genuinely used. `sqlc.Profile` serves as the
@@ -162,25 +175,25 @@ gqlgen 0.17.94 dropped its gorilla adapter; the transport moved to
    (`resolver.ProfileService`), which is why the rule cannot simply be tightened:
    it needs a real domain model plus mapping. `backend/AGENTS.md`'s "dependencies
    point inward" currently describes the opposite.
-8. **`tsc --noEmit` ignores project references**, so `vite.config.ts`,
+10. **`tsc --noEmit` ignores project references**, so `vite.config.ts`,
    `vitest.config.ts` and both Vite plugins — one of them the env-var startup
    validator — are typechecked by nothing, and `tsconfig.node.json` has no `strict`.
-9. **`npm run check` runs `lint:fix` (write mode)**, so violations are mutated
+11. **`npm run check` runs `lint:fix` (write mode)**, so violations are mutated
    instead of failing, and lefthook never re-stages — committed code can differ
    from checked code.
-10. **Upload timeout leaks.** `backend/internal/upload/service.go` `writeFile`
+12. **Upload timeout leaks.** `backend/internal/upload/service.go` `writeFile`
     returns on timeout while its `io.Copy` goroutine keeps writing to the
     already-removed file: goroutine, descriptor and up to 5 MiB of invisible disk
     per occurrence.
-11. **`setup.sh` never creates `.env`** while `doctor.sh` silently falls back to
+13. **`setup.sh` never creates `.env`** while `doctor.sh` silently falls back to
     `.env.example`, so the documented first run reports OK for a configuration the
     app does not read — and `frontend/src/app/vite-dotenv-checker.plugin.ts`
     `readFileSync`s `.env` unguarded, so that path fails with ENOENT.
-12. **`gen:check` conflates two states.** It regenerates and then diffs the working
+14. **`gen:check` conflates two states.** It regenerates and then diffs the working
     tree, so a legitimate regeneration reads as "stale" until staged — which is why
     `task update` cannot succeed across a gqlgen bump without an intermediate
     `git add`. Diff against a temp dir instead.
-13. **Coverage floors carry slack**, and the two metrics disagree — mind which one you
+15. **Coverage floors carry slack**, and the two metrics disagree — mind which one you
     quote. By **statements**, which is what the gate enforces: `internal/auth` 72.6%
     vs a floor of 60, `upload` 69.5/60, `profile` 67.3/60. By mean-per-function
     (`go tool cover -func`) the same packages read 89.1 / 76.5 / 77.8, so a floor

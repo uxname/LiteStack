@@ -47,10 +47,20 @@ It renames:
   (`github.com/uxname/liteend-go` → `github.com/<owner>/<name>`) across `go.mod` and
   every backend `*.go` import — about 40 files.
 
-It does **not** touch: your own new code, README/docs prose, or anything added after the
-file lists in the script were last updated. Grep for the old brand once more when you are
-done:
+It does **not** touch:
+
+- **the backend's own brand strings**, which are UI text, not just internals:
+  `internal/version/version.go` (`AppName`), the dev launcher and Swagger pages in
+  `internal/devtools/`, `internal/devtools/openapi.yaml`, and the GraphQL playground
+  title in `internal/graph/handler.go`. Rename them by hand if the backend's dev
+  surfaces are user-visible in your product;
+- your own new code, and README/docs prose;
+- anything added after the script's file lists were last updated.
+
+Grep for the old identity once more when you are done — over the whole submodules, not
+just `src/`, because a narrowed scope is exactly how entries have been missed before:
 
 ```bash
-grep -rn 'LiteFront\|litefront\|liteend' frontend/src frontend/tests backend --exclude-dir=node_modules
+grep -rn 'LiteFront\|litefront\|liteend' frontend backend \
+  --exclude-dir={node_modules,.output,.nitro,dist,generated}
 ```

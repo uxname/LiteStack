@@ -68,12 +68,13 @@ OPS=(
   "frontend/tests/e2e/agent-screens.spec.ts|litefront-theme|$NAME-theme"
 )
 # Brand identity (token replacement preserves surrounding text).
-# Keep this list in step with:
-#   grep -rln LiteFront frontend/src frontend/tests frontend/vite.config.ts
-# Do NOT forget frontend/tests — three of the files below are tests that assert the
-# brand string, so a missing entry doesn't just ship the template's identity, it
-# leaves a derived project with a failing `npm run check` (unit) or `verify:push`
-# (E2E).
+# Keep this list in step with a grep over the WHOLE submodule, not just src/:
+#   grep -rln LiteFront frontend --exclude-dir={node_modules,.output,.nitro,dist,src/generated}
+# Narrowing that scope is how entries keep getting missed — first frontend/tests
+# (three of the files below are tests that assert the brand, so a miss leaves a
+# derived project with a failing `npm run check` or `verify:push`), then
+# .github/logo.svg. Anything with a brand token belongs here even if nothing
+# imports it.
 BRAND_FILES=(
   "frontend/vite.config.ts"
   "frontend/src/routes/__root.tsx"
@@ -83,6 +84,8 @@ BRAND_FILES=(
   "frontend/src/widgets/Header/ui/index.test.tsx"
   "frontend/src/pages/home/ui/index.tsx"
   "frontend/tests/e2e/pages/home.spec.ts"
+  # The <title> inside the repo logo, added so biome's SVG a11y rule passes.
+  "frontend/.github/logo.svg"
 )
 for f in "${BRAND_FILES[@]}"; do
   OPS+=("$f|LiteFront|$DISPLAY")
