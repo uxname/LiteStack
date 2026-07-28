@@ -59,15 +59,23 @@ OPS=(
   "frontend/package.json|\"name\": \"litefront\"|\"name\": \"$NAME\""
   "backend/docker-compose.yml|liteend-net|$NAME-net"
   "frontend/src/features/theme/model/store.ts|litefront-theme|$NAME-theme"
+  # The theme key lives in TWO places: the store above and the blocking pre-paint
+  # script in __root.tsx. Renaming only the store leaves the script reading the old
+  # key, so dark-mode users get a flash of the light theme — the exact FOUC that
+  # script exists to prevent.
+  "frontend/src/routes/__root.tsx|litefront-theme|$NAME-theme"
 )
-# Brand identity (token replacement preserves surrounding text):
+# Brand identity (token replacement preserves surrounding text).
+# Keep this list in step with `grep -rn LiteFront frontend/src frontend/vite.config.ts`
+# — a missing file ships the template's brand in a derived project, and the two
+# test files below assert those strings, so missing them breaks `npm run check`.
 BRAND_FILES=(
   "frontend/vite.config.ts"
   "frontend/src/routes/__root.tsx"
   "frontend/src/routes/index.tsx"
-  "frontend/src/routes/protected/index.tsx"
-  "frontend/src/routes/protected/account.tsx"
+  "frontend/src/routes/account.tsx"
   "frontend/src/widgets/Header/ui/index.tsx"
+  "frontend/src/widgets/Header/ui/index.test.tsx"
   "frontend/src/pages/home/ui/index.tsx"
 )
 for f in "${BRAND_FILES[@]}"; do
@@ -77,6 +85,11 @@ done
 if [[ -n "$REPO_OWNER" ]]; then
   OPS+=("frontend/src/pages/home/ui/index.tsx|uxname/litefront|$REPO_OWNER/$NAME")
   OPS+=("frontend/src/pages/home/ui/index.tsx|uxname/liteend-go|$REPO_OWNER/$NAME")
+  # The install command the landing page copies to the clipboard, and the test
+  # that pins it — otherwise a derived project tells visitors to degit the
+  # template.
+  OPS+=("frontend/src/pages/home/lib/copyInstallCommand.ts|uxname/litefront|$REPO_OWNER/$NAME")
+  OPS+=("frontend/src/pages/home/lib/copyInstallCommand.test.ts|uxname/litefront|$REPO_OWNER/$NAME")
 fi
 
 echo "Project rename:"

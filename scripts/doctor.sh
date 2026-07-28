@@ -25,9 +25,15 @@ BE_ENV="$(envfile backend)"
 FE_ENV="$(envfile frontend)"
 
 # getval <file> <KEY>: value of KEY, last wins, quotes + inline comments stripped.
+# Prints nothing when the key is absent — that is a normal outcome this script is
+# built to report, so it must NOT be an error. Without the trailing `|| true`,
+# grep's exit 1 propagates through `pipefail` into `VAR="$(getval …)"` and `set -e`
+# kills the checker mid-run: a missing key produced no diagnostic at all, which is
+# the opposite of what an env doctor is for.
 getval() {
   grep -E "^[[:space:]]*$2=" "$1" 2>/dev/null | tail -1 \
-    | sed -E "s/^[[:space:]]*$2=//; s/[[:space:]]+#.*$//; s/^['\"]//; s/['\"]$//; s/[[:space:]]*$//"
+    | sed -E "s/^[[:space:]]*$2=//; s/[[:space:]]+#.*$//; s/^['\"]//; s/['\"]$//; s/[[:space:]]*$//" \
+    || true
 }
 
 FAIL=0
