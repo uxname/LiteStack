@@ -54,7 +54,7 @@ git remote add origin <meta-repo-url>
 ```
 
 After this, `.gitmodules` URLs point at the team's repos → the project is in **DERIVED mode**
-(see root `AGENTS.md` → Operating mode). All future pushes go to the team's repos, never to
+(see root `.agents/OPERATING-MODE.md`). All future pushes go to the team's repos, never to
 `uxname/*`.
 
 ## Step 4: Rename the template identity

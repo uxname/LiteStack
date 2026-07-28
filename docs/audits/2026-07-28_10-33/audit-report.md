@@ -134,14 +134,15 @@ gqlgen 0.17.94 dropped its gorilla adapter; the transport moved to
    (`backend/internal/health/health.go`, and again in the `debug` resolver), on a
    **public** endpoint that Docker's HEALTHCHECK hits every 5s. Serve process
    metrics from a periodic sample, or drop them from the public payload.
-4. **`NODE_ENV` is documented nowhere** yet gates all three production hardenings
-   (`backend/internal/config/config.go`: refuses `OIDC_MOCK_ENABLED`, requires a
-   non-empty `CORS_ORIGIN`, disables introspection and error masking). It is absent
-   from `.env.example` and the README settings table and defaults to
-   `development` — forgetting it ships a leaky production. Related: with an empty
-   `CORS_ORIGIN` the WS handshake falls back to `InsecureSkipVerify`, and the
-   fail-fast only triggers on the exact string `production`, so a staging
-   deployment accepts any origin.
+4. **A non-production environment accepts any WebSocket origin.** With an empty
+   `CORS_ORIGIN` the handshake falls back to `InsecureSkipVerify`, and the fail-fast
+   that forbids an empty list triggers only on the exact string `production` — so a
+   staging deployment silently accepts every origin. Either require the allowlist
+   outside development too, or drop the permissive fallback and make dev set the
+   value explicitly.
+   *(The documentation half of this — `NODE_ENV` being documented nowhere despite
+   gating all three production hardenings — was fixed later in the same session; see
+   "Fixed" above.)*
 5. **Sentry Session Replay ships to everyone**: ~122 KB gzip pulled into the root
    route's preload (`frontend/src/shared/lib/sentry/config.ts` +
    `client.tsx`) while `replaysSessionSampleRate` is 0.1 — wasted for 90% of
@@ -179,10 +180,13 @@ gqlgen 0.17.94 dropped its gorilla adapter; the transport moved to
     tree, so a legitimate regeneration reads as "stale" until staged — which is why
     `task update` cannot succeed across a gqlgen bump without an intermediate
     `git add`. Diff against a temp dir instead.
-13. **Coverage floors carry large slack** (`internal/auth` 60 vs 89.1% actual,
-    `upload` 60/76.5, `profile` 60/77.8) and `middleware`, `server`, `logger`,
-    `backup` have no floor at all. `backup`'s `Restore`/`rotate` remain unvalidated
-    against a live database.
+13. **Coverage floors carry slack**, and the two metrics disagree — mind which one you
+    quote. By **statements**, which is what the gate enforces: `internal/auth` 72.6%
+    vs a floor of 60, `upload` 69.5/60, `profile` 67.3/60. By mean-per-function
+    (`go tool cover -func`) the same packages read 89.1 / 76.5 / 77.8, so a floor
+    argued from that number looks about twice as slack as it is. Separately,
+    `middleware`, `server`, `logger` and `backup` have no floor at all, and `backup`'s
+    `Restore`/`rotate` remain unvalidated against a live database.
 
 ## Open — P3
 

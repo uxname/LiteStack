@@ -10,7 +10,7 @@
 - **Clone:** `git clone --recurse-submodules <url>` (or `git submodule update --init --recursive`).
 - **Run the two projects separately** — backend on `:4000`, frontend on `:3000`.
 - **Two modes:** *template* (improving the boilerplate) vs *derived* (your real product) —
-  they only change where you commit/push. See `AGENTS.md` → Operating mode.
+  they only change where you commit/push. See [`.agents/OPERATING-MODE.md`](./.agents/OPERATING-MODE.md).
 
 ---
 
@@ -31,17 +31,21 @@ LiteStack/
 ├── package.json               # meta tooling: CodeGraph CLI (devDep) + codegraph:* scripts
 ├── .mcp.json                  # CodeGraph MCP server config (Claude Code)
 ├── .codegraph/                # CodeGraph index DB (git-ignored; rebuilt by codegraph:init)
+├── .agents/                    # cross-project instruction files AGENTS.md routes to
 ├── backend/                   # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
-├── frontend/                 # submodule → frontend (Vite · React 19 · URQL)
-└── .claude/skills/            # meta-skills + fe-* wrappers to the frontend skills
+├── frontend/                  # submodule → litefront (Vite · React 19 · URQL)
+└── .claude/skills/            # the four cross-project skills
 ```
 
-**Skills:** the frontend keeps its own skills (in `frontend/.agents/skills/`) and the
-meta-repo adds thin `fe-*` wrappers in `.claude/skills/` that delegate into it. The backend
-(liteend-go) ships no skills — backend work follows `backend/AGENTS.md`. Opening the
-LiteStack root surfaces every (frontend + meta) skill in both opencode and Claude
-Code. Plus two true cross-project skills: `full-stack-feature` and `commit`. See
-`AGENTS.md` → Skills.
+**Instructions vs skills.** Each project has one entry point — `AGENTS.md` — holding the
+rules you must not break plus a routing table into topic files under its own `.agents/`
+directory, so an agent reads only the file its task needs. Both submodules follow that
+shape and ship **no** skills of their own.
+
+Skills are reserved for genuinely cross-project orchestration and live in
+`.claude/skills/`, visible from the meta root in both Claude Code and opencode:
+`full-stack-feature`, `commit`, `retro`, `new-project`. See [`AGENTS.md`](./AGENTS.md) →
+Skills.
 
 ## Two ways to use it
 
@@ -52,7 +56,7 @@ Code. Plus two true cross-project skills: `full-stack-feature` and `commit`. See
   snapshot — it is **not** kept in sync with the upstream templates (they change too often,
   sometimes with breaking changes).
 
-See `AGENTS.md` → **Operating mode** for detection and the commit/push rules.
+See [`.agents/OPERATING-MODE.md`](./.agents/OPERATING-MODE.md) for detection and the commit/push rules.
 
 ## Getting started
 
@@ -149,6 +153,6 @@ Cross-project value contracts (must agree across the two `.env` files):
 
 ## Deriving a new project
 
-See `AGENTS.md` → **Deriving a new project from LiteStack**. In short: create your own
+See [`.agents/DERIVE.md`](./.agents/DERIVE.md). In short: create your own
 repos on any git host, re-point the submodule URLs (`git config -f .gitmodules …` +
 `git submodule sync`), set the meta-repo `origin`, and push.

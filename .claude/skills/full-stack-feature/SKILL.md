@@ -20,7 +20,7 @@ sync → frontend**.
 ### Step 0: Confirm scope and mode
 
 - Restate the feature in one sentence and confirm both sides are needed.
-- Check the operating mode (see root `AGENTS.md` → Operating mode). It determines where you
+- Check the operating mode (see root `.agents/OPERATING-MODE.md`). It determines where you
   commit and push at the end.
 
 ### Step 1: Backend (inside `backend/` — Go, liteend-go)

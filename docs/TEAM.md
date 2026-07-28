@@ -20,7 +20,7 @@ improvement upstream, branch the template, PR it, then bump the pointer (TEMPLAT
 
 Use the **`new-project`** skill (it drives `scripts/rename-project.sh`, `setup.sh`, `doctor.sh`).
 It produces the meta+submodules shape in DERIVED mode, repointed at the team's repos. See the
-skill and `AGENTS.md → Deriving a new project`.
+skill and [`../.agents/DERIVE.md`](../.agents/DERIVE.md).
 
 ## Branch / PR flow (per repo)
 

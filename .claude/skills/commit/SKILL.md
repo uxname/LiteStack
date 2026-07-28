@@ -18,7 +18,7 @@ omission. The retro file is a meta-repo file; it gets staged and committed in St
 
 ## Step 1: Detect the operating mode
 
-Read root `AGENTS.md` → Operating mode. In short:
+Read root `.agents/OPERATING-MODE.md`. In short:
 
 ```bash
 git config -f .gitmodules submodule.liteend-go.url

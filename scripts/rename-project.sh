@@ -59,16 +59,21 @@ OPS=(
   "frontend/package.json|\"name\": \"litefront\"|\"name\": \"$NAME\""
   "backend/docker-compose.yml|liteend-net|$NAME-net"
   "frontend/src/features/theme/model/store.ts|litefront-theme|$NAME-theme"
-  # The theme key lives in TWO places: the store above and the blocking pre-paint
-  # script in __root.tsx. Renaming only the store leaves the script reading the old
-  # key, so dark-mode users get a flash of the light theme — the exact FOUC that
-  # script exists to prevent.
+  # The theme key lives in THREE places: the store above, the blocking pre-paint
+  # script in __root.tsx, and the screenshot harness that seeds localStorage.
+  # Renaming only the store leaves the script reading the old key, so dark-mode
+  # users get a flash of the light theme — the exact FOUC that script exists to
+  # prevent — and the harness silently stops capturing the dark theme at all.
   "frontend/src/routes/__root.tsx|litefront-theme|$NAME-theme"
+  "frontend/tests/e2e/agent-screens.spec.ts|litefront-theme|$NAME-theme"
 )
 # Brand identity (token replacement preserves surrounding text).
-# Keep this list in step with `grep -rn LiteFront frontend/src frontend/vite.config.ts`
-# — a missing file ships the template's brand in a derived project, and the two
-# test files below assert those strings, so missing them breaks `npm run check`.
+# Keep this list in step with:
+#   grep -rln LiteFront frontend/src frontend/tests frontend/vite.config.ts
+# Do NOT forget frontend/tests — three of the files below are tests that assert the
+# brand string, so a missing entry doesn't just ship the template's identity, it
+# leaves a derived project with a failing `npm run check` (unit) or `verify:push`
+# (E2E).
 BRAND_FILES=(
   "frontend/vite.config.ts"
   "frontend/src/routes/__root.tsx"
@@ -77,6 +82,7 @@ BRAND_FILES=(
   "frontend/src/widgets/Header/ui/index.tsx"
   "frontend/src/widgets/Header/ui/index.test.tsx"
   "frontend/src/pages/home/ui/index.tsx"
+  "frontend/tests/e2e/pages/home.spec.ts"
 )
 for f in "${BRAND_FILES[@]}"; do
   OPS+=("$f|LiteFront|$DISPLAY")
