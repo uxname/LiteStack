@@ -54,22 +54,28 @@ hermetic (mock auth + stubbed GraphQL), so they need no live backend.
 
 ## Agent tooling — Claude Code & opencode parity
 
-Both agents are first-class. Skill discovery paths each tool reads:
+Both agents are first-class, and the instruction layout is deliberately chosen so neither
+tool has an advantage.
 
-| Path | Claude Code | opencode |
-|---|---|---|
-| `.claude/skills/<name>/SKILL.md` | ✅ | ✅ (project-Claude compat) |
-| `.agents/skills/<name>/SKILL.md` (inside a submodule) | ❌ | ✅ |
-| `~/.claude/skills`, `~/.agents/skills` (global) | ✅ / ❌ | ✅ / ✅ |
+**Instructions, not skills, carry the workflows.** Each project has one entry point —
+`AGENTS.md` — that holds the non-negotiable rules plus a routing table into topic files
+under its own `.agents/` directory (`ARCHITECTURE.md`, `TESTING.md`, `QUALITY-GATES.md`, …).
+Every agent reads plain files, so this works identically everywhere, and an agent loads
+only the file its task needs instead of one long document.
+
+Skills are reserved for **genuinely cross-project orchestration** and live in
+`.claude/skills/`, which both tools read from the meta root: `full-stack-feature`,
+`commit`, `retro`, `new-project`. The submodules ship none — a one-sided workflow belongs
+in that submodule's `.agents/` file, so there is exactly one place per topic and nothing
+to keep in sync.
 
 Consequences for contributors:
-- Meta skills + the `be-*`/`fe-*` wrappers live in `.claude/skills/` → **both** tools see them
-  from the meta root.
-- The real submodule skills live in `<submodule>/.agents/skills/` → opencode loads them
-  un-prefixed when working inside a submodule; Claude Code reaches them via the meta wrappers.
-- **All load-bearing instructions live in `AGENTS.md`**, which both tools read. The repo
-  `CLAUDE.md` is only a pointer to `AGENTS.md` (Claude Code reads it; opencode reads `AGENTS.md`
-  directly) — do not put unique guidance in `CLAUDE.md`.
+- Adding guidance? Put it in the right `.agents/*.md` and, if a new topic, add one row to
+  that project's `AGENTS.md` routing table. Don't grow `AGENTS.md` itself.
+- **Don't restate a value a config file owns** (coverage floors, field limits, tool
+  versions) — point at the file. Every copied value in this repo's docs has drifted at
+  least once.
+- The repo `CLAUDE.md` is only a pointer to `AGENTS.md` — do not put unique guidance there.
 - MCP (CodeGraph) is wired for both: `.mcp.json` (Claude Code) and `opencode.jsonc` (opencode).
   Run `npm run codegraph:setup` per clone; restart the agent afterward.
 

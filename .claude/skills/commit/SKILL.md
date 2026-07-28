@@ -44,14 +44,19 @@ For **each** submodule that has changes (`backend` and/or `frontend`):
 
 ```bash
 cd <submodule>
-# Use the submodule's OWN commit skill — it runs that project's `npm run check`
-# and follows its conventional-commit conventions.
-# (backend → its `commit` skill; frontend → its `commit` skill.)
-git push          # push to the submodule's remote (per the detected mode)
+# Run that project's own gate FIRST, from its AGENTS.md:
+#   backend  → task check      (and task test:cov before pushing)
+#   frontend → npm run check   (verify:push runs on pre-push)
+git add -A && git commit       # conventional commits; the pre-commit hook re-runs the gate
+git push                       # push to the submodule's remote (per the detected mode)
 cd ..
 ```
 
-Do not skip the submodule's `npm run check` / pre-commit hooks. Never use `--no-verify`.
+Do not skip the submodule's pre-commit / pre-push hooks. Never use `--no-verify` —
+there is no CI behind them.
+
+> Check the **exit status** of each gate, not the tail of its output. A
+> `task check | tail` reports success even when the task failed.
 
 ## Step 4: Record the updated pointers in the meta-repo
 

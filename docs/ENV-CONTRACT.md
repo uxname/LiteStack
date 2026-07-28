@@ -14,7 +14,7 @@ Source of truth: `backend/.env` and `frontend/.env` (each falls back to its `.en
 |---|---|---|---|
 | **OIDC audience** | `OIDC_AUDIENCE` | `VITE_OIDC_API_RESOURCE` | **Equal.** This is the `aud` claim of the access token the SPA sends. Mismatch → backend rejects every request (401). |
 | **OIDC tenant** | `OIDC_ISSUER` | `VITE_OIDC_AUTHORITY` | **Equal.** Both point at the same Logto tenant. (`OIDC_JWKS_URI` = `OIDC_ISSUER` + `/jwks`.) |
-| **CORS** | `CORS_ORIGIN` | `VITE_BASE_URL` | `CORS_ORIGIN` (comma-separated) **must include** the frontend origin. Mismatch → browser blocks `/graphql` + `/upload`. |
+| **CORS + WebSockets** | `CORS_ORIGIN` | `VITE_BASE_URL` | `CORS_ORIGIN` (comma-separated, entries trimmed on load) **must include** the frontend origin. It gates **both** HTTP CORS and the GraphQL **WebSocket handshake**, so a mismatch blocks `/graphql` + `/upload` in the browser **and** silently refuses subscriptions from that origin (403 on upgrade). An empty list means "any origin": refused in production, but *not* on other non-production environments — set it explicitly on staging. |
 | **GraphQL endpoint** | `PORT` | `VITE_GRAPHQL_API_URL` | The frontend URL's port **must equal** the backend `PORT`, path `/graphql`. Mismatch → data fetching + codegen fail. |
 | **Port collision** | `PORT` (4000) | `PORT` (3000) | Backend and frontend dev ports **must differ** (and not collide with admin ports 5100/5200/5432/6379). |
 

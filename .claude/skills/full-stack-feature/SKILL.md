@@ -1,12 +1,13 @@
 ---
 name: full-stack-feature
-description: Orchestrate a feature that spans both the backend (backend) and the frontend (frontend). Use this when a change needs work on both sides — e.g. "add a field to the API and show it in the UI", "new endpoint and a screen for it", "expose X in GraphQL and render it". Runs backend first, regenerates frontend types, then builds the UI. Delegates to each sub-project's own skills.
+description: Orchestrate a feature that spans both the backend (backend) and the frontend (frontend). Use this when a change needs work on both sides — e.g. "add a field to the API and show it in the UI", "new endpoint and a screen for it", "expose X in GraphQL and render it". Runs backend first, regenerates frontend types, then builds the UI. Delegates to each sub-project's own AGENTS.md instructions.
 ---
 
 The user wants a feature that touches **both** the backend and the frontend. This skill is
 the conductor: it decides the order, runs the backend side first, syncs the GraphQL
 contract, then runs the frontend side. It does not contain backend/frontend logic itself —
-it **delegates to the sub-project skills**, which must be used inside each submodule.
+it **delegates to each sub-project's own instructions** (`AGENTS.md` + its `.agents/` files),
+which must be followed inside that submodule.
 
 ## Golden rule: backend first
 
@@ -28,8 +29,8 @@ sync → frontend**.
 cd backend
 ```
 
-**Read `backend/AGENTS.md` first — it is the source of truth for the Go workflow.** The
-backend has no `be-*` meta skills; follow its own conventions. The common moves:
+**Read `backend/AGENTS.md` first — it routes you to the right file
+(`backend/.agents/ARCHITECTURE.md` covers everything below).** The common moves:
 
 - New/changed GraphQL field → edit `internal/graph/schema.graphqls` (give every type, field,
   enum value, input a `"description"`) → `task gen` → implement the resolver stub in
@@ -67,17 +68,14 @@ before continuing.
 
 ### Step 4: Frontend (inside `frontend/`)
 
-Read `frontend/AGENTS.md`, then use its skills as appropriate:
+Read `frontend/AGENTS.md` and follow its routing table to the file for your task:
 
-- New GraphQL operation? → `add-gql`
-- New page/route? → `new-page`
-- New slice/feature/entity/widget? → `new-fsd-slice`
-- Reusable component? → `new-component`
-- Client state? → `new-store`
-- Protected route? → `add-auth-guard`
-- User-facing text? → `add-translation`
-- Tests → `write-tests`
-- Quality gate → `quality-fix` (or `npm run check`)
+- GraphQL operation, page/route, slice, component, store, protected route →
+  `frontend/.agents/ARCHITECTURE.md`
+- Tests and stories → `frontend/.agents/TESTING.md`
+- User-facing text, styling, theming → `frontend/.agents/STYLE.md`
+- A failing gate, env, dependencies → `frontend/.agents/QUALITY-GATES.md`
+- Need to see what the UI actually does → `frontend/.agents/OBSERVABILITY.md`
 
 Build the UI from the generated types (`@generated/*`). Make sure `npm run check` passes.
 

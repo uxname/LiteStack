@@ -71,11 +71,21 @@ Already cloned without submodules?
 git submodule update --init --recursive
 ```
 
-Then install dependencies in each sub-project:
+Then install dependencies in each sub-project — **the two stacks differ, the backend has
+no `package.json`**:
 
 ```bash
-( cd backend   && npm install )
-( cd frontend && npm install )
+( cd backend  && task setup )    # Go deps + git hooks + codegen + local db/redis
+( cd frontend && npm install )   # npm deps + git hooks (via postinstall)
+```
+
+Then create each `.env` (nothing does it for you at the meta level) and verify the
+contract:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+scripts/doctor.sh
 ```
 
 ### CodeGraph (code-intelligence index for AI agents)
