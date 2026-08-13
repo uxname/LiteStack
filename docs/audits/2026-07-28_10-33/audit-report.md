@@ -282,6 +282,11 @@ Each item below was re-verified against the code on this date.
 - **P2 #7 — FIXED.** The SSR render handler reports caught errors through
   `captureServerException` (`frontend/src/server.ts` →
   `@shared/lib/sentry/server`) before returning the 500.
+- **P2 #13 — FIXED.** `scripts/doctor.sh` still falls back to `.env.example` for
+  its diagnostics when a `.env` is missing, but the missing file is now itself a
+  named failure (with the `cp` command to fix it) and the exit code is non-zero —
+  a fresh clone no longer gets a green check for a configuration the apps do not
+  read.
 - **P2 #15 (backup clause) and the P3 backup items — MOOT.** The hand-rolled
   backup subsystem (`backend/internal/backup`) was removed entirely; backups are
   the platform's job now (Dokploy native database services, or one `pg_dump`

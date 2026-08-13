@@ -2,8 +2,10 @@
 #
 # doctor.sh — verify the backend ↔ frontend env contract (docs/ENV-CONTRACT.md).
 #
-# Reads backend/.env and frontend/.env (each falling back to its .env.example) and checks
-# the must-match pairs. Exits non-zero if any hard check fails.
+# Reads backend/.env and frontend/.env and checks the must-match pairs. A missing .env
+# falls back to .env.example so the diagnostics still run, but is itself reported as a
+# failure: the apps read only .env, so a green check against .env.example would describe
+# a configuration nothing actually runs with. Exits non-zero if any hard check fails.
 #
 # Usage:
 #   scripts/doctor.sh [--reachable]
@@ -46,6 +48,13 @@ echo "Env contract check"
 echo "  backend env:  ${BE_ENV#"$ROOT"/}"
 echo "  frontend env: ${FE_ENV#"$ROOT"/}"
 echo
+
+# 0. The .env files must exist at all — the apps read only .env, never .env.example.
+for side in backend frontend; do
+  if [[ ! -f "$ROOT/$side/.env" ]]; then
+    fail "$side/.env is missing (diagnostics below use .env.example, which the app does not read) — run: cp $side/.env.example $side/.env"
+  fi
+done
 
 BE_PORT="$(getval "$BE_ENV" PORT)"
 BE_AUD="$(getval "$BE_ENV" OIDC_AUDIENCE)"

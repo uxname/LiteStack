@@ -6,7 +6,9 @@ now **fail fast at startup**: an empty `CORS_ORIGIN` in production (backend refu
 and any missing required `VITE_*` var (frontend throws on its first render). `scripts/doctor.sh`
 checks these pairs automatically — run it after editing any `.env`.
 
-Source of truth: `backend/.env` and `frontend/.env` (each falls back to its `.env.example`).
+Source of truth: `backend/.env` and `frontend/.env`. A missing `.env` makes
+`scripts/doctor.sh` fall back to that side's `.env.example` for the diagnostics, but the
+missing file itself is reported as a failure — the apps read only `.env`.
 
 ## Must-match pairs
 
