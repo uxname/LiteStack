@@ -68,7 +68,9 @@ Traefik, and your containers. Recommended shape:
 3. **Frontend as a Dokploy Application, built AT DEPLOY TIME.** Build type
    *Dockerfile* on the frontend repo, with that environment's `VITE_*` variables
    set in Dokploy so the build bakes them in (see "one image = one environment"
-   above). A staging and a production frontend are two Applications with two
+   above). Keep Dokploy's **"Create .env file"** option on (it is the default):
+   it writes the variables into a `.env` in the build context, which is exactly
+   how they reach the Vite build. A staging and a production frontend are two Applications with two
    different `VITE_*` sets — never one shared image.
 4. **Env checklist:** every must-match pair lives in
    [ENV-CONTRACT.md](./ENV-CONTRACT.md). Run through it before the first deploy.
