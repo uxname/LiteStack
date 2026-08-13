@@ -18,7 +18,9 @@
 #   --repo-owner  If set, rewrites demo refs uxname/litefront and uxname/liteend-go on the
 #                 home page to <repo-owner>/<name>, AND rewrites the backend Go module path
 #                 (github.com/uxname/liteend-go → github.com/<repo-owner>/<name>) across
-#                 go.mod and every backend *.go import. Omit to leave both untouched.
+#                 go.mod, every backend *.go import, and the backend *.yml configs that
+#                 reference it (.golangci.yml, gqlgen.yml, .testcoverage.yml, Taskfile.yml).
+#                 Omit to leave all of them untouched.
 #   --dry-run     Show every match that would change; mutate nothing.
 #
 set -euo pipefail
@@ -57,7 +59,19 @@ fi
 # Machine identity (exact, anchored where ambiguous):
 OPS=(
   "frontend/package.json|\"name\": \"litefront\"|\"name\": \"$NAME\""
-  "backend/docker-compose.yml|liteend-net|$NAME-net"
+  # Docker identity. Derived from (retro rule — grep the WHOLE submodules, never eyeball):
+  #   grep -rn 'liteend\|litefront' backend frontend \
+  #     --include='*.yml' --include='*.yaml' --include='*.json' -l
+  # In the compose files EVERY occurrence of the token is the brand (network name,
+  # image name, RedisInsight connection alias), so a plain token replace is safe —
+  # "liteend-net" becomes "$NAME-net" through the same substitution.
+  "backend/docker-compose.yml|liteend|$NAME"
+  "backend/docker-compose.prod.yml|liteend|$NAME"
+  "frontend/docker-compose.yml|litefront|$NAME"
+  # Image refs in the docker:build / docker:push wrappers. Anchored with the ":"
+  # so the Go module path (liteend-go) stays with the module rewrite below.
+  "backend/Taskfile.yml|liteend:|$NAME:"
+  "frontend/package.json|litefront:|$NAME:"
   "frontend/src/features/theme/model/store.ts|litefront-theme|$NAME-theme"
   # The theme key lives in THREE places: the store above, the blocking pre-paint
   # script in __root.tsx, and the screenshot harness that seeds localStorage.
@@ -135,13 +149,20 @@ done
 
 # Backend Go module path (tree-wide; only when --repo-owner is provided). The Go module
 # path is the machine identity of the backend (liteend-go) — it prefixes every internal
-# import, so it must be rewritten across go.mod and all *.go, not per-file.
+# import, so it must be rewritten across go.mod and all *.go, not per-file. The backend
+# *.yml configs reference it too (.golangci.yml depguard/gci, gqlgen.yml model mapping,
+# .testcoverage.yml excludes, Taskfile.yml PKG) — miss those and a derived project's
+# lint/codegen/coverage gates break on the first run.
 if [[ -n "$REPO_OWNER" ]]; then
-  OLD_MODULE="github.com/uxname/liteend-go"
-  NEW_MODULE="github.com/$REPO_OWNER/$NAME"
+  # The token deliberately omits the "github.com/" prefix: .testcoverage.yml carries
+  # the path in regex-escaped form (github\.com/uxname/liteend-go), which a
+  # fixed-string match on the full path would miss. Replacing the owner/name part
+  # yields the same result in every file, escaped or not.
+  OLD_MODULE="uxname/liteend-go"
+  NEW_MODULE="$REPO_OWNER/$NAME"
   if [[ "$OLD_MODULE" != "$NEW_MODULE" ]]; then
-    # go.mod + every backend *.go that references the old module path.
-    mapfile -t GO_FILES < <(grep -rlF "$OLD_MODULE" "$ROOT/backend/go.mod" "$ROOT/backend" --include='go.mod' --include='*.go' 2>/dev/null | sort -u)
+    # go.mod + every backend *.go and *.yml that references the old module path.
+    mapfile -t GO_FILES < <(grep -rlF "$OLD_MODULE" "$ROOT/backend/go.mod" "$ROOT/backend" --include='go.mod' --include='*.go' --include='*.yml' 2>/dev/null | sort -u)
     for path in "${GO_FILES[@]}"; do
       [[ -f "$path" ]] || continue
       rel="${path#"$ROOT"/}"

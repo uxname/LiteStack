@@ -60,6 +60,7 @@ mistakes become tomorrow's rules.
 | The back ↔ front seams (codegen, auth audience, CORS + WebSockets), shared conventions, project map | [.agents/CROSS-PROJECT.md](./.agents/CROSS-PROJECT.md) |
 | Start a real product from this template | [.agents/DERIVE.md](./.agents/DERIVE.md) |
 | Which env vars must match across sides | [docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md) |
+| Deploy it: local Docker, Dokploy production, registry images | [docs/DEPLOY.md](./docs/DEPLOY.md) |
 | Team process: repo model, branch/PR flow, gates | [docs/TEAM.md](./docs/TEAM.md) |
 | "See" what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
 | Known open issues and what was already audited | latest `docs/audits/*/audit-report.md` |

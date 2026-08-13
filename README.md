@@ -142,6 +142,8 @@ Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
   `:4000/graphql` + gqlgen playground). First-time full onboarding: `task setup`.
 - **Frontend** (`frontend/`): `cp .env.example .env` → `npm run gen` (backend must be up)
   → `npm run start:dev` (serves at `:3000`).
+- **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS):
+  see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
 Cross-project value contracts (must agree across the two `.env` files):
 

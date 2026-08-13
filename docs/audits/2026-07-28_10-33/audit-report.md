@@ -259,3 +259,32 @@ migrate's full-jitter backoff, URQL `retryExchange` and per-request
 `AbortSignal.timeout` all hold; all three shell scripts use `set -euo pipefail` and
 every `setup.sh` step is idempotent; no skipped or focused tests exist in either
 project.
+
+---
+
+## Addendum — 2026-08-13
+
+Status update only — the findings above are a dated record and stand as written.
+Each item below was re-verified against the code on this date.
+
+- **P1 #3 — FIXED.** `/health` no longer stops the world: `memoryCheck` reads
+  `runtime/metrics` counters (`backend/internal/health/health.go`), and the
+  container healthcheck now polls every 30s, not 5s. The ADMIN-only `debug`
+  resolver still calls `ReadMemStats`, but on demand behind auth — not a polled
+  public path.
+- **P1 #4 — FIXED.** The WebSocket handshake authorises against `CORS_ORIGIN`
+  via `OriginPatterns` (`backend/internal/graph/handler.go`); an empty list is
+  never allow-all on any environment — only same-origin and Origin-less
+  (non-browser) clients get through.
+- **P2 #6 — FIXED.** `frontend/Dockerfile` runs `npm ci --legacy-peer-deps`, so
+  the image resolves exactly `package-lock.json` (the `--legacy-peer-deps` hold
+  is the documented graphql-16 peer conflict, see `.ncurc.yml`).
+- **P2 #7 — FIXED.** The SSR render handler reports caught errors through
+  `captureServerException` (`frontend/src/server.ts` →
+  `@shared/lib/sentry/server`) before returning the 500.
+- **P2 #15 (backup clause) and the P3 backup items — MOOT.** The hand-rolled
+  backup subsystem (`backend/internal/backup`) was removed entirely; backups are
+  the platform's job now (Dokploy native database services, or one `pg_dump`
+  line — see the meta repo's `docs/DEPLOY.md`). The rest of #15 — floor slack
+  and the missing `middleware`/`server`/`logger` floors — is unaffected and
+  stays open.
