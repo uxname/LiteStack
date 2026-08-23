@@ -78,7 +78,11 @@ Traefik, and your containers. Recommended shape:
 ## Registry flow — build on one machine, run on another
 
 Conventions (both sides): `IMAGE_REGISTRY` is a prefix **with a trailing
-slash** (e.g. `ghcr.io/acme/`), `IMAGE_TAG` defaults to `latest`.
+slash**, `IMAGE_TAG` defaults to `latest`. Any registry works: GitHub
+(`ghcr.io/acme/`), a Docker Hub namespace (`docker.io/acme/`), or self-hosted
+(`registry.acme.com:5000/acme/`); empty means Docker Hub top-level. Private
+registry? `docker login` on the BUILD host before pushing and on the RUN host
+before pulling (pulling public images needs no login).
 
 ```bash
 # Backend — produces <IMAGE_REGISTRY>liteend:<IMAGE_TAG>
@@ -113,6 +117,29 @@ simply `task docker:build && docker compose -f docker-compose.prod.yml up -d`
 (backend) or `npm run docker:build && docker compose -f docker-compose.prod.yml
 up -d` (frontend).
 
+**Registry-flow rules (both sides):**
+
+- **Always `pull` before `up -d`.** If the tag was not re-pushed, pull returns
+  the same digest and `up -d` recreates nothing — a green-looking deploy that
+  ships last week's image. Verify what actually runs:
+  `docker compose -f docker-compose.prod.yml images`.
+- **Never share tags across environments** (`prod-v1.2.0`, `staging-v1.2.0`,
+  never a shared `latest`). A frontend image built with another environment's
+  `.env` boots GREEN — health checks pass — and simply points its users at the
+  wrong backend. The worst path is silent: outside production an empty backend
+  `CORS_ORIGIN` allows every origin, so a staging-built stack can record real
+  users into the staging database.
+- **Roll back** by re-upping the previous tag (shell vars override `.env`):
+  `IMAGE_TAG=v1.1.0 docker compose -f docker-compose.prod.yml pull &&
+  IMAGE_TAG=v1.1.0 docker compose -f docker-compose.prod.yml up -d`.
+  Backend caveat: migrations are forward-only (embedded goose has no down
+  path), so rolling the image back does NOT roll the schema back.
+- **Run hosts need no `.env` by design.** The frontend container reads nothing
+  at runtime (VITE_* are baked); `PORT`/tag come from shell vars or an optional
+  project-dir `.env`. The backend takes its config from a `.env` next to the
+  compose file OR plain exported variables — both prod composes fail loudly,
+  naming the missing variable, instead of booting half-configured.
+
 **Frontend caveat, again:** a prebuilt frontend image carries its `VITE_*`
 values, so pushing one to a registry only makes sense **per environment**
 (e.g. `litefront:prod-v1.2.0` built with the production `.env`).
@@ -122,7 +149,7 @@ values, so pushing one to a registry only makes sense **per environment**
 - **Backend:** `backend/docker-compose.prod.yml` runs the **app only** — no
   database services on purpose. Provide your own Postgres and Redis (any
   compose project or a managed service) and point `DATABASE_HOST`/`REDIS_HOST`
-  (+ ports/credentials) at them in `.env`. Mind the network: the prod compose
+  (+ ports/credentials) at them via `.env` or exported environment variables. Mind the network: the prod compose
   creates its own default network, so a service name from a *neighboring*
   compose project (e.g. `db`) does not resolve — either join both projects to
   one shared external network (same mechanism as the commented dokploy-network
