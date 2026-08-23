@@ -42,7 +42,7 @@ model {
     }
 
     web = container 'Frontend «litefront»' {
-      description 'Renders pages server-side (SSR) and serves static assets to the browser. All VITE_* values are baked into the JS bundle at build time, so one image fits exactly one environment; at runtime it reads only PORT=3000. Healthcheck — wget on / — is baked into the Dockerfile.'
+      description 'Renders pages server-side (SSR) and serves static assets to the browser. All VITE_* values are baked into the JS bundle at build time, so one image fits exactly one environment; at runtime it reads only PORT=3000. Healthcheck — wget on the static /health.txt (no SSR render per probe) — is baked into the Dockerfile.'
       technology 'Vite · React 19 · TanStack Start · Nitro (Node 22)'
     }
 
