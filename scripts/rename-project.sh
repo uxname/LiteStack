@@ -68,6 +68,7 @@ OPS=(
   "backend/docker-compose.yml|liteend|$NAME"
   "backend/docker-compose.prod.yml|liteend|$NAME"
   "frontend/docker-compose.yml|litefront|$NAME"
+  "frontend/docker-compose.prod.yml|litefront|$NAME"
   # Image refs in the docker:build / docker:push wrappers. Anchored with the ":"
   # so the Go module path (liteend-go) stays with the module rewrite below.
   "backend/Taskfile.yml|liteend:|$NAME:"

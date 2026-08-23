@@ -2,7 +2,7 @@
 
 One page for every way this template gets deployed. Commands below are verified
 against `backend/Taskfile.yml`, `backend/docker-compose*.yml`,
-`frontend/docker-compose.yml` and `frontend/package.json`.
+`frontend/docker-compose*.yml` and `frontend/package.json`.
 
 ## How this template deploys
 
@@ -92,19 +92,26 @@ IMAGE_REGISTRY=ghcr.io/acme/ IMAGE_TAG=v1.2.0 npm run docker:build
 IMAGE_REGISTRY=ghcr.io/acme/ IMAGE_TAG=v1.2.0 npm run docker:push
 ```
 
-On the target host (compose reads the same two variables from `.env`):
+On the target host (compose reads the same two variables from `.env`; for the
+frontend the tag must be an image built with **this** environment's `VITE_*`):
 
 ```bash
 cd backend
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
+
+cd ../frontend
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 or point a Dokploy Application's *Docker image* provider at the pushed image.
-`docker-compose.prod.yml` has **no `build:` on purpose** — a failed pull fails
-the deploy instead of silently rebuilding from whatever source sits on the
-host. Building and running on the **same** machine (no registry) is simply:
-`task docker:build && docker compose -f docker-compose.prod.yml up -d`.
+Both `docker-compose.prod.yml` files have **no `build:` on purpose** — a failed
+pull fails the deploy instead of silently rebuilding from whatever source sits
+on the host. Building and running on the **same** machine (no registry) is
+simply `task docker:build && docker compose -f docker-compose.prod.yml up -d`
+(backend) or `npm run docker:build && docker compose -f docker-compose.prod.yml
+up -d` (frontend).
 
 **Frontend caveat, again:** a prebuilt frontend image carries its `VITE_*`
 values, so pushing one to a registry only makes sense **per environment**
@@ -122,13 +129,12 @@ values, so pushing one to a registry only makes sense **per environment**
   block inside the file) or point `DATABASE_HOST` at the host itself. The app
   publishes on `127.0.0.1:$PORT` only — put your reverse proxy (TLS) in front,
   or use the Dokploy/Traefik network variant commented inside the file.
-- **Frontend:** build the image on the target host (so its `VITE_*` match) and
-  run it with `frontend/docker-compose.yml` — its `pull_policy: build` rebuilds
-  on every `up`, so the running bundle always matches the checkout's `.env`. To
-  run that environment's **prebuilt** image instead, pull it with plain docker
-  (`pull_policy: build` makes `docker compose pull` skip this service):
-  `docker pull "${IMAGE_REGISTRY}litefront:${IMAGE_TAG}"`, then
-  `docker compose up -d --no-build`. The app publishes on `127.0.0.1:$PORT`
+- **Frontend:** remember one image = one environment. Either build the image on
+  the target host (so its `VITE_*` match) and run it with
+  `frontend/docker-compose.yml` — its `pull_policy: build` rebuilds on every
+  `up`, so the running bundle always matches the checkout's `.env` — or run the
+  environment's **prebuilt** image via `frontend/docker-compose.prod.yml`,
+  same as the backend above. The app publishes on `127.0.0.1:$PORT`
   only — same reverse-proxy rule as the backend.
 - **Backups** are one `pg_dump` away — schedule it with cron:
 
