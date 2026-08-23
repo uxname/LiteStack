@@ -1,0 +1,127 @@
+// Архитектурные схемы LiteStack (формат LikeC4).
+// Как посмотреть картинки: likec4 start docs/architecture/likec4
+// Правило: поменял код или деплой-конфиги (compose/Dockerfile/ENV-CONTRACT) —
+// поправь эту схему в том же коммите.
+//
+// LiteStack — мета-репозиторий-бойлерплейт: своего кода в нём нет, только два
+// субмодуля (backend/ = liteend-go, frontend/ = litefront) и общие доки.
+// Схема рисует систему так, как она живёт в проде, плюс путь деплоя
+// «build server → registry → run server» из docs/DEPLOY.md.
+
+specification {
+  element actor { style { shape person } }        // человек за клавиатурой
+  element system                                   // готовая внешняя система
+  element container                                // приложение или хранилище
+  element infrastructure                            // машины и реестр образов
+}
+
+model {
+  user = actor 'Пользователь' {
+    description 'Человек в браузере: открывает сайт, входит через Logto, работает с данными.'
+  }
+
+  engineer = actor 'Инженер (DevOps)' {
+    description 'Собирает и выкатывает образы руками. CI в шаблоне нет по дизайну: все проверки живут в git-хуках субмодулей, а деплой — всегда явная команда из docs/DEPLOY.md.'
+  }
+
+  lstack = system 'LiteStack' {
+    description 'Продукт, который выходит из шаблона: фронтенд, бэкенд и их данные. Мета-репозиторий только склеивает два субмодуля и держит общие договорённости (ENV-CONTRACT, DEPLOY).'
+
+    // Reverse proxy — единственный контейнер на схеме, которого нет ни в одном
+    // compose шаблона: это Traefik из Dokploy или nginx самого хоста. Оба
+    // приложения публикуются только на 127.0.0.1, поэтому без прокси снаружи
+    // не достучаться.
+    proxy = container 'Reverse proxy (TLS)' {
+      description 'Принимает HTTPS из интернета и пробрасывает на приложения. В комплект шаблона не входит — его ставит хостинг (Traefik в Dokploy или ваш nginx); он же терминирует TLS.'
+    }
+
+    web = container 'Frontend «litefront»' {
+      description 'Сервер рендерит страницы (SSR) и отдаёт статику браузеру. Все VITE_* значения вшиваются в JS-бандл при сборке, поэтому один образ годится ровно для одного окружения; в рантайме читает только PORT=3000. Healthcheck — wget на / — зашит в Dockerfile.'
+      technology 'Vite · React 19 · TanStack Start · Nitro (Node 22)'
+    }
+
+    api = container 'Backend «liteend»' {
+      description 'GraphQL-API: запросы POST /graphql, подписки по WebSocket (протокол graphql-transport-ws), загрузка файлов /upload (раздача на /uploads). При каждом старте сам накатывает goose-миграции — они только вперёд, отката схемы нет. Внутри контейнера всегда порт 4000. Healthcheck (/app/server -healthcheck) зашит в Dockerfile.'
+      technology 'Go · gqlgen · sqlc · goose · Asynq'
+    }
+
+    db = container 'PostgreSQL' {
+      description 'Основное хранилище данных. В проде это отдельный внешний сервис (например, нативный сервис Dokploy с бэкапами) — в docker-compose.prod.yml его намеренно нет; локально его поднимает backend/docker-compose.yml.'
+      technology 'PostgreSQL'
+    }
+
+    cache = container 'Redis' {
+      description 'Очередь фоновых задач Asynq и служебные нужды бэкенда. Как и Postgres — внешний сервис в проде, в dev поднимается компоузом бэкенда.'
+      technology 'Redis'
+    }
+
+    proxy -> web 'отдаёт запросы SSR-приложению' 'На хосте контейнер опубликован на 127.0.0.1:3000; число слева в маппинге портов выбирается переменной PORT.'
+    proxy -> api 'проксирует запросы к API' 'На хосте — 127.0.0.1:4000; переменная PORT выбирает порт на хосте, внутри контейнера всегда 4000.'
+
+    web -> api 'шлёт GraphQL-запросы' {
+      description 'POST /graphql с заголовком Authorization: Bearer <JWT>; подписки идут туда же по WebSocket. Адрес API (VITE_GRAPHQL_API_URL) вшит в бандл при сборке — переезд домена API требует пересборки фронта. CORS_ORIGIN бэкенда обязан содержать адрес фронта, иначе браузер заблокирует запросы, а WebSocket-подписки умрут с 403.'
+      technology 'HTTPS/JSON + graphql-transport-ws'
+    }
+    api -> db 'читает и пишет данные' 'SQL через sqlc. При старте контейнера встроенный goose накатывает миграции вперёд: откат образа схему не откатывает (см. DEPLOY.md).'
+    api -> cache 'ставит фоновые задачи' 'Джобы Asynq лежат в Redis; в dev за очередью смотрят через дашборд Asynqmon.'
+  }
+
+  logto = system 'Logto (OIDC)' {
+    description 'Внешний сервис входа. Браузер проходит редирект (OIDC PKCE) и получает JWT — подписанный токен, по которому бэкенд узнаёт пользователя. Проверка идёт по публичным ключам (JWKS). В локальной разработке вместо него у бэкенда есть мок-режим.'
+  }
+
+  registry = infrastructure 'Container registry' {
+    description 'Хранилище Docker-образов: namespace на Docker Hub, ghcr.io или свой self-hosted сервер. Имя подставляется из IMAGE_REGISTRY (со слэшем на конце), тег — IMAGE_TAG (по умолчанию latest).'
+  }
+
+  buildsrv = infrastructure 'Build-сервер' {
+    description 'Машина, где собирают образы командами task docker:build (бэкенд) / npm run docker:build (фронт). Это просто Docker и чекаут репозитория, никакого особого софта — CI в проекте нет.'
+  }
+
+  runsrv = infrastructure 'Run-сервер' {
+    description 'Машина, где образы запускают: docker compose -f docker-compose.prod.yml pull && up -d. Файл .env не обязателен: фронту в рантайме ничего не нужно, бэкенду хватает экспортированных переменных — недостающие обязательные роняют деплой громко, с именем переменной.'
+  }
+
+  user -> lstack.proxy 'открывает сайт по HTTPS'
+
+  lstack.web -> logto 'уходит на вход (OIDC PKCE)' 'Редирект на Logto и возврат с кодом; адрес тенанта (VITE_OIDC_AUTHORITY) вшит в бандл при сборке.'
+  lstack.api -> logto 'проверяет JWT по JWKS' 'Тянет публичные ключи (OIDC_JWKS_URI) и сверяет audience (OIDC_AUDIENCE). Audience должен совпадать с VITE_OIDC_API_RESOURCE фронта — иначе 401 на каждый запрос.'
+
+  engineer -> buildsrv 'собирает образы'
+  buildsrv -> registry 'пушит образы' 'docker push <IMAGE_REGISTRY>liteend|litefront:<IMAGE_TAG>; на приватный реестр — сначала docker login. Теги строго на окружение: prod-v1.2.0, staging-v1.2.0 — общего latest быть не должно.'
+  engineer -> runsrv 'выкатывает релиз'
+  runsrv -> registry 'тянет образы' 'docker compose -f docker-compose.prod.yml pull. Оба prod-compose без build: специально: упавший pull роняет деплой, а не молча пересобирает что попало.'
+}
+
+views {
+  view index {
+    title 'LiteStack: кто с кем разговаривает'
+    include *
+  }
+
+  view ofLstack of lstack {
+    title 'Из чего состоит система'
+    include *
+    include logto
+  }
+
+  dynamic view requestFlow {
+    title 'Запрос пользователя, шаг за шагом'
+    user -> lstack.proxy 'Шаг 1: браузер открывает сайт по HTTPS'
+    lstack.proxy -> lstack.web 'Шаг 2: прокси ведёт на SSR-контейнер, Nitro рендерит страницу'
+    user -> logto 'Шаг 3: вход — браузер уходит на Logto (OIDC PKCE) и возвращается с токенами'
+    user -> lstack.api 'Шаг 4: браузер шлёт POST /graphql с Bearer JWT; подписки — тот же путь по WebSocket'
+    lstack.api -> logto 'Шаг 5: бэкенд проверяет подпись токена по публичным ключам (JWKS)'
+    lstack.api -> lstack.db 'Шаг 6: выполняет SQL через sqlc'
+    lstack.api -> lstack.cache 'Шаг 7: долгие операции уходят в фоновые задачи Asynq'
+  }
+
+  dynamic view deployFlow {
+    title 'Деплой через registry, шаг за шагом'
+    engineer -> buildsrv 'Шаг 1: запускает сборку образов (task docker:build / npm run docker:build)'
+    buildsrv -> registry 'Шаг 2: пушит образы с тегом на окружение (prod-/staging-), на приватный реестр — после docker login'
+    engineer -> runsrv 'Шаг 3: на целевом хосте задаёт IMAGE_REGISTRY и IMAGE_TAG, зовёт docker compose pull для обеих сторон'
+    runsrv -> registry 'Шаг 4: тянет образы; если digest не изменился, up -d будет пустышкой — проверяй docker compose images'
+    engineer -> runsrv 'Шаг 5: up -d поднимает контейнеры; бэкенд при старте сам гонит goose-миграции (только вперёд)'
+  }
+}
