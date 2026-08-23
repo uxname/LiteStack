@@ -1,6 +1,8 @@
 // LiteStack architecture diagrams (LikeC4 format).
-// To browse them visually: npx -y likec4@1 start docs/architecture/likec4
-// To validate them:       npx -y likec4@1 validate docs/architecture/likec4
+// Run from the META-REPO ROOT (likec4 is a devDependency there):
+//   browse:   npm run likec4:start
+//   validate: npm run likec4:validate
+// Fallback without an install: npx -y likec4@1 <command> docs/architecture/likec4
 // (the CLI major is pinned: the scoped @likec4/cli package is a dead 0.x line
 // without the validate command). Tested with likec4 1.59.2.
 // Rule: changed code or deploy configs (compose/Dockerfile/ENV-CONTRACT) —

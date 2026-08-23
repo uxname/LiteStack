@@ -8,9 +8,12 @@
     "codegraph:install": "codegraph install -y -l local -t claude,opencode,cursor",
     "codegraph:setup": "npm run codegraph:init && npm run codegraph:install",
     "codegraph:status": "codegraph status",
-    "codegraph:reindex": "codegraph init -i ."
+    "codegraph:reindex": "codegraph init -i .",
+    "likec4:validate": "likec4 validate docs/architecture/likec4",
+    "likec4:start": "likec4 start docs/architecture/likec4"
   },
   "devDependencies": {
-    "@colbymchenry/codegraph": "^0.9.9"
+    "@colbymchenry/codegraph": "^0.9.9",
+    "likec4": "^1.59.2"
   }
 }

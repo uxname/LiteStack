@@ -28,7 +28,7 @@ manager, bmad-method, etc.).
 LiteStack/
 ├── AGENTS.md                  # entry point: meta-project model, cross-project rules, two-mode git
 ├── CLAUDE.md                  # pointer to AGENTS.md
-├── package.json               # meta tooling: CodeGraph CLI (devDep) + codegraph:* scripts
+├── package.json               # meta tooling: CodeGraph + LikeC4 CLIs (devDeps), codegraph:* / likec4:* scripts
 ├── .mcp.json                  # CodeGraph MCP server config (Claude Code)
 ├── .codegraph/                # CodeGraph index DB (git-ignored; rebuilt by codegraph:init)
 ├── .agents/                    # cross-project instruction files AGENTS.md routes to
