@@ -60,6 +60,17 @@ BE_PORT="$(getval "$BE_ENV" PORT)"
 BE_AUD="$(getval "$BE_ENV" OIDC_AUDIENCE)"
 BE_ISS="$(getval "$BE_ENV" OIDC_ISSUER)"
 BE_CORS="$(getval "$BE_ENV" CORS_ORIGIN)"
+BE_MOCK="$(getval "$BE_ENV" OIDC_MOCK_ENABLED)"
+
+# With OIDC_MOCK_ENABLED=true the backend ignores its own OIDC_* vars entirely
+# (docs/ENV-CONTRACT.md), so the two OIDC pairs are *expected* to diverge — the
+# shipped .env.example files do exactly that. Reporting it as a hard failure
+# trains people to ignore a red doctor, which is worse than no doctor at all.
+if [[ "$BE_MOCK" == "true" ]]; then
+  oidc() { warn "$1 — ignorable: backend runs in OIDC mock mode"; }
+else
+  oidc() { fail "$1"; }
+fi
 
 FE_PORT="$(getval "$FE_ENV" PORT)"
 FE_BASE="$(getval "$FE_ENV" VITE_BASE_URL)"
@@ -71,14 +82,14 @@ FE_GQL="$(getval "$FE_ENV" VITE_GRAPHQL_API_URL)"
 if [[ -n "$BE_AUD" && "$BE_AUD" == "$FE_RES" ]]; then
   pass "OIDC audience matches ($BE_AUD)"
 else
-  fail "OIDC_AUDIENCE ($BE_AUD) != VITE_OIDC_API_RESOURCE ($FE_RES)"
+  oidc "OIDC_AUDIENCE ($BE_AUD) != VITE_OIDC_API_RESOURCE ($FE_RES)"
 fi
 
 # 2. OIDC tenant
 if [[ -n "$BE_ISS" && "$BE_ISS" == "$FE_AUTH" ]]; then
   pass "OIDC tenant matches ($BE_ISS)"
 else
-  fail "OIDC_ISSUER ($BE_ISS) != VITE_OIDC_AUTHORITY ($FE_AUTH)"
+  oidc "OIDC_ISSUER ($BE_ISS) != VITE_OIDC_AUTHORITY ($FE_AUTH)"
 fi
 
 # 3. CORS includes frontend origin
