@@ -70,7 +70,7 @@ manifest, page titles, and demo links. Run it BEFORE installing.
 ## Step 5: Install + environment
 
 ```bash
-scripts/setup.sh        # submodules + binary fix + go mod download (backend) + npm install (frontend) + CodeGraph
+scripts/setup.sh        # submodules + binary fix + go mod download (backend) + npm install (frontend)
 cp backend/.env.example  backend/.env
 cp frontend/.env.example frontend/.env
 ```
@@ -117,7 +117,6 @@ Report to the user:
 - [ ] `scripts/doctor.sh` passes (or OIDC mismatch is expected — backend in mock mode).
 - [ ] Backend runs (`task start:dev`); `/graphql` answers; frontend `npm run gen` succeeded.
 - [ ] Auth: backend in mock mode or swapped to the team's Logto tenant (before production).
-- [ ] CodeGraph index built; agent restarted to load the MCP server.
 
 ## What NOT to do
 

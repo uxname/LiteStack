@@ -6,24 +6,22 @@
 #   1. init/update submodules
 #   2. apply the frontend binary-attributes fix (per-clone, not committed)
 #   3. fetch deps: `go mod download` in backend (Go), `npm install` in frontend
-#   4. npm install + codegraph:setup at the meta root (unless --no-codegraph)
+#      and at the meta root (unless --no-install)
 #
 # Note: this only fetches dependencies. Full backend bring-up (env, hooks, codegen,
 # DB+Redis, migrations) is `cd backend && task setup` — it needs Docker, so it is not
 # run here. See backend/AGENTS.md.
 #
-# Usage: scripts/setup.sh [--no-codegraph] [--no-install]
+# Usage: scripts/setup.sh [--no-install]
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-DO_CODEGRAPH=1
 DO_INSTALL=1
 for arg in "$@"; do
   case "$arg" in
-    --no-codegraph) DO_CODEGRAPH=0 ;;
     --no-install)   DO_INSTALL=0 ;;
     -h|--help)      grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)              echo "unknown argument: $arg" >&2; exit 1 ;;
@@ -53,19 +51,10 @@ if [[ "$DO_INSTALL" == 1 ]]; then
   ( cd backend && go mod download )
   step "Frontend: npm install"
   ( cd frontend && npm install )
-else
-  echo "  (skipped submodule dependency install — --no-install)"
-fi
-
-if [[ "$DO_CODEGRAPH" == 1 ]]; then
-  step "Meta: npm install + CodeGraph index/MCP setup"
+  step "Meta: npm install (LikeC4 CLI)"
   npm install
-  npm run codegraph:setup
-  echo
-  echo "CodeGraph wired. RESTART your agent (Claude Code / opencode / Cursor) to load the MCP server."
 else
-  echo
-  echo "  (skipped CodeGraph — --no-codegraph)"
+  echo "  (skipped dependency install — --no-install)"
 fi
 
 step "Done"

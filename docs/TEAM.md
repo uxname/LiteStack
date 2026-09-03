@@ -76,8 +76,6 @@ Consequences for contributors:
   versions) — point at the file. Every copied value in this repo's docs has drifted at
   least once.
 - The repo `CLAUDE.md` is only a pointer to `AGENTS.md` — do not put unique guidance there.
-- MCP (CodeGraph) is wired for both: `.mcp.json` (Claude Code) and `opencode.jsonc` (opencode).
-  Run `npm run codegraph:setup` per clone; restart the agent afterward.
 
 ## Onboarding a new developer (checklist)
 
@@ -85,4 +83,3 @@ Consequences for contributors:
 2. `scripts/setup.sh`
 3. Copy `.env.example` → `.env` in each submodule; `scripts/doctor.sh` must pass.
 4. Read `AGENTS.md`, `backend/AGENTS.md`, `frontend/AGENTS.md`, and `docs/retro/*`.
-5. Restart the agent (Claude Code / opencode) to load the CodeGraph MCP server.

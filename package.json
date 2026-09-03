@@ -2,18 +2,12 @@
   "name": "litestack",
   "version": "0.0.0",
   "private": true,
-  "description": "LiteStack meta-repo — coordination layer over the backend/frontend submodules. Holds no app code; owns cross-project tooling (CodeGraph index, scripts).",
+  "description": "LiteStack meta-repo — coordination layer over the backend/frontend submodules. Holds no app code; owns cross-project tooling (LikeC4 diagrams, scripts).",
   "scripts": {
-    "codegraph:init": "codegraph init -i .",
-    "codegraph:install": "codegraph install -y -l local -t claude,opencode,cursor",
-    "codegraph:setup": "npm run codegraph:init && npm run codegraph:install",
-    "codegraph:status": "codegraph status",
-    "codegraph:reindex": "codegraph init -i .",
     "likec4:validate": "likec4 validate docs/architecture/likec4",
     "likec4:start": "likec4 start docs/architecture/likec4"
   },
   "devDependencies": {
-    "@colbymchenry/codegraph": "^1.6.0",
     "likec4": "^1.59.3"
   }
 }
