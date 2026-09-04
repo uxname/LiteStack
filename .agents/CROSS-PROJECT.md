@@ -22,7 +22,7 @@ Backend infra ports: PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsight
 - A full-stack feature → **both, backend first** (define the schema and resolver, then
   regenerate and consume the types). Use the `full-stack-feature` skill.
 
-## The three seams
+## The four seams
 
 ### 1. GraphQL types are generated from the live backend
 
@@ -56,6 +56,27 @@ other non-production environments.
 The must-match pairs are documented in [../docs/ENV-CONTRACT.md](../docs/ENV-CONTRACT.md)
 and checked mechanically by `scripts/doctor.sh`.
 
+### 4. `requestId` is the correlation key between the two logs
+
+The backend generates a request id per request, stamps it on **every** log line of that
+request (including the background jobs it enqueues), and returns it to the client on
+every GraphQL error as `extensions.requestId`.
+
+The frontend must carry it through, and does: `errorExchange` keeps it in the error
+report (it whitelists `requestId` and `code` out of `extensions` — the rest is dropped
+because it can leak server detail), and `ErrorFallback` shows it to the user under
+**Details → Request**. That is what lets a user-reported failure be answered from the
+server log:
+
+```sh
+docker compose logs --no-log-prefix app | jq -c 'select(.request_id=="<ID>")'
+```
+
+Break either half and the two logs stop joining: the backend's story of a failure and
+the user's report of it become two unrelated facts. Why it is built this way, and what
+is deliberately *not* built: [meta ADR-0004](../docs/adr/0004-logs-are-the-diagnostic-surface.md).
+Reading the logs: `backend/docs/DEBUGGING.md`, `frontend/.agents/OBSERVABILITY.md`.
+
 ## Shared conventions
 
 - **Build tools differ by stack**: backend = Go + `task` (Taskfile); frontend = npm.
@@ -70,6 +91,10 @@ and checked mechanically by `scripts/doctor.sh`.
   `frontend/.agents/TESTING.md`, `backend/.agents/TESTING.md`.
 - **English-only in the repo.** Code, comments, identifiers, commit messages and docs
   are English. (Chatting with the user follows the user's language.)
+- **The log level means severity, on both sides.** `ERROR` is reserved for what the
+  system did wrong (5xx, internal GraphQL errors, failed jobs/queries, a crashed
+  render); a client fault is `WARN`. Every failure path leaves exactly one line, and
+  never at `INFO` — see [meta ADR-0004](../docs/adr/0004-logs-are-the-diagnostic-surface.md).
 - **Formatters must not be shared**: backend = gofumpt + golangci-lint; frontend =
   Biome (double quotes). Never copy formatting or lint config across the boundary.
 - **Run the projects separately**, each per its own `AGENTS.md`; there is no root

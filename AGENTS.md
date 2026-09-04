@@ -64,6 +64,7 @@ mistakes become tomorrow's rules.
 | Team process: repo model, branch/PR flow, gates | [docs/TEAM.md](./docs/TEAM.md) |
 | **Why** something is the way it is — repo topology, no CI, living diagrams | [docs/adr/](./docs/adr/) |
 | "See" what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
+| Triage a failure from the logs — which line to grep, how the two sides join | [backend/docs/DEBUGGING.md](./backend/docs/DEBUGGING.md) + the frontend file above |
 | Known open issues and what was already audited | latest `docs/audits/*/audit-report.md` — the directory does **not exist in the template**; the first audit run creates it |
 | Anything backend-specific | [backend/AGENTS.md](./backend/AGENTS.md) |
 | Anything frontend-specific | [frontend/AGENTS.md](./frontend/AGENTS.md) |
@@ -90,7 +91,12 @@ First-time setup of an existing clone: `scripts/setup.sh` (see `README.md`). Not
    scope is the area you touched; drop it only when the change is genuinely global. No
    discipline beyond that is required of the history — the gates are what guarantee
    quality ([ADR-0001](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).
-8. **A structural decision gets an ADR in the same session that makes it.** Repo topology,
+8. **A failure has to be findable in the logs.** `ERROR` is reserved for what the
+   system did wrong, `WARN` for what the caller did wrong, and every failure path leaves
+   exactly one line — never at `INFO`, never nowhere. The backend's `request_id` is the
+   key that joins the two sides' logs and must survive the trip in both directions
+   ([ADR-0004](./docs/adr/0004-logs-are-the-diagnostic-surface.md)).
+9. **A structural decision gets an ADR in the same session that makes it.** Repo topology,
    a layer boundary, a protocol between the two sides, a security posture that will look
    like a bug to the next reader, a deliberate omission — write it down in
    [docs/adr/](./docs/adr/) before the code lands. A rule without its reason is what

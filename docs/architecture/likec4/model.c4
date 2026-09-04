@@ -65,7 +65,7 @@ model {
     proxy -> api 'proxies requests to the API' 'On the host — 127.0.0.1:4000; PORT selects the host-side port, inside the container it is always 4000.'
 
     web -> api 'sends GraphQL queries' {
-      description 'POST /graphql with an Authorization: Bearer <JWT> header; subscriptions take the same route over WebSocket. The API address (VITE_GRAPHQL_API_URL) is baked into the bundle at build time — moving the API domain requires rebuilding the frontend. The backend CORS_ORIGIN must include the frontend origin, or the browser blocks the requests and WebSocket subscriptions die with 403.'
+      description 'POST /graphql with an Authorization: Bearer <JWT> header; subscriptions take the same route over WebSocket. The API address (VITE_GRAPHQL_API_URL) is baked into the bundle at build time — moving the API domain requires rebuilding the frontend. The backend CORS_ORIGIN must include the frontend origin, or the browser blocks the requests and WebSocket subscriptions die with 403. Failed responses carry extensions.requestId — the id the backend stamps on every log line of that request; the frontend keeps it and shows it in the error screen, so one id joins both logs.'
       technology 'HTTPS/JSON + graphql-transport-ws'
     }
     api -> db 'reads and writes data' 'SQL through sqlc. At container startup the embedded goose applies migrations forward-only: rolling the image back does NOT roll the schema back (see DEPLOY.md).'
