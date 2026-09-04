@@ -62,8 +62,9 @@ mistakes become tomorrow's rules.
 | Which env vars must match across sides | [docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md) |
 | Deploy it: local Docker, Dokploy production, registry images | [docs/DEPLOY.md](./docs/DEPLOY.md) |
 | Team process: repo model, branch/PR flow, gates | [docs/TEAM.md](./docs/TEAM.md) |
+| **Why** something is the way it is — repo topology, no CI, living diagrams | [docs/adr/](./docs/adr/) |
 | "See" what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
-| Known open issues and what was already audited | latest `docs/audits/*/audit-report.md` — **empty in the template**, an audit run creates the first one |
+| Known open issues and what was already audited | latest `docs/audits/*/audit-report.md` — the directory does **not exist in the template**; the first audit run creates it |
 | Anything backend-specific | [backend/AGENTS.md](./backend/AGENTS.md) |
 | Anything frontend-specific | [frontend/AGENTS.md](./frontend/AGENTS.md) |
 
@@ -84,6 +85,17 @@ First-time setup of an existing clone: `scripts/setup.sh` (see `README.md`). Not
    happy ending even when the command failed.
 6. **After subagents run, treat the git index as untrusted**: `git status` in all three
    repos, `git reset` what you did not stage, then stage deliberately.
+7. **Commit messages are Conventional Commits, in English**: `type(scope): summary`, all
+   lower case — `docs(prd):`, `chore(submodules):`, `fix(scripts):`, `feat(likec4):`. The
+   scope is the area you touched; drop it only when the change is genuinely global. No
+   discipline beyond that is required of the history — the gates are what guarantee
+   quality ([ADR-0001](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).
+8. **A structural decision gets an ADR in the same session that makes it.** Repo topology,
+   a layer boundary, a protocol between the two sides, a security posture that will look
+   like a bug to the next reader, a deliberate omission — write it down in
+   [docs/adr/](./docs/adr/) before the code lands. A rule without its reason is what
+   someone "fixes" six months later. Naming, formatting and library swaps are **not**
+   ADR material — they belong in this file or in a sub-project's `.agents/*.md`.
 
 ## How to talk to the user
 

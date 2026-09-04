@@ -4,6 +4,10 @@ Each file here is the retrospective of **one work session**: what went **badly**
 the **rule** that prevents repeating it. This folder is the project's accumulated memory of
 mistakes — future agents read it *before* touching code so they don't relive them.
 
+**This folder is empty in the template on purpose.** LiteStack ships no retros of its own:
+a derived project starts with a clean memory and fills this folder with *its* mistakes. An
+empty folder here is the expected state, not a gap to fix.
+
 ## Lifecycle
 
 1. **Before any change** — the agent reads every `docs/retro/*.md` (in a separate
