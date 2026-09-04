@@ -20,9 +20,16 @@ An audit of the two sides found that evidence missing in the exact places it was
   production. `FORBIDDEN`, `BAD_USER_INPUT` and validation failures were logged nowhere,
   and GraphQL always answers HTTP 200, so the access log could not see them either.
 - Background jobs and slow SQL had no link back to the request that caused them.
+- A panic inside a **resolver** — the likeliest place to panic — is recovered by gqlgen,
+  not by the HTTP middleware, and gqlgen's default recover prints the value and stack to
+  stderr as raw text: uncorrelated and in a shape a JSON collector drops.
+- The upload endpoint answered every failure with a fixed vague string and kept nothing:
+  two of those are 500s. Profile cache invalidation failures were dropped silently, so a
+  user could be served a stale profile with no trace of why.
 - On the frontend, every error path went through `captureException`, which is a **no-op**
   when no Sentry DSN was baked in at build time. An image built without a DSN reported
-  nothing, anywhere. React render errors were not reported even with one.
+  nothing, anywhere. React render errors were not reported even with one, and neither
+  were OIDC errors — `react-oidc-context` surfaces them as state, never as a throw.
 
 ## Decision
 
@@ -67,6 +74,8 @@ sides:
 - Middleware order is now load-bearing on the backend: `RequestLogger` **must** wrap
   `Recoverer`. A test in `internal/server/server_test.go` pins it, because the failure
   mode is silent — everything still works, the evidence just disappears.
+- Panic recovery lives in two places and both must stay wired: `middleware.Recoverer`
+  for HTTP handlers, `graph.recoverPanic` for resolvers.
 - Every payload type in `internal/queue` must keep a `request_id` field; asynq has no
   headers, so correlation rides in the payload or not at all.
 - Frontend code may not call `captureException` directly; `logError` is the sink. Nothing
