@@ -134,7 +134,7 @@ echo
 echo "Scale stand (scale/)"
 echo "  validate its config: npm run scale:validate"
 if [[ -f "$ROOT/scripts/scale-check.sh" ]]; then
-  echo "  run the scenarios:   scripts/scale-check.sh (starts the stand; takes minutes)"
+  echo "  run the scenarios:   start the stand yourself, then scripts/scale-check.sh"
 fi
 
 echo
