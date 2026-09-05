@@ -16,7 +16,8 @@ liteend-go + frontend litefront, with a coordination layer on top).
 
 Goals, heaviest first:
 
-1. **Fast start for a new product**: auth, CI, deploy and docs already assembled.
+1. **Fast start for a new product**: auth, quality gates (git hooks rather than
+   a CI service — see ADR-0001), deploy and docs already assembled.
 2. One standard across all projects: a single stack, easy switching.
 3. Carrying accumulated best practices from project to project.
 4. Showcase — passive: the repositories are public and readable on their own,
