@@ -1,0 +1,370 @@
+# LiteStack scale-check stand — a LOCAL rig, never a deployment target.
+#
+# It runs the whole product the way production runs it with more than one copy
+# of each side: two backends, two frontends, one Caddy in front of both, and the
+# state they share (Postgres, Redis, Garage). Its job is to prove that nothing
+# in the app is pinned to one copy — scripts/scale-check.sh drives the scenarios
+# through it.
+#
+#   start:  docker compose -f scale/docker-compose.yml up -d --wait
+#   stop:   docker compose -f scale/docker-compose.yml down -v
+#
+# Every value below has a default, so there is nothing to copy or fill in first;
+# `up` on empty volumes is the whole setup, Garage included. The .env.example
+# next to this file documents the knobs — and the one thing you must know before
+# reading anything into a green run: THE BACKENDS RUN WITH MOCK AUTH.
+#
+# The copies are two named services (…-a / …-b) rather than `--scale app=2`, so
+# that a scenario can address ONE copy by name: Caddy publishes a dedicated port
+# per copy (8081/8082 backend, 8083/8084 frontend) next to the load-balanced
+# entry on 8080. "Upload through A, read through B" is not checkable against a
+# round-robin that picks the copy for you.
+#
+# App containers publish NO host port: every request must arrive through Caddy,
+# or the rate-limit scenario could be answered by going around the proxy — which
+# is also the shape production runs in (see the submodules' docker-compose.prod.yml).
+name: litestack-scale
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "2"
+
+# Sized for a developer laptop running all nine containers at once, NOT copied
+# from the production compose files (those cap one service per host).
+x-app-resources: &app-resources
+  resources:
+    limits:
+      cpus: "0.75"
+      memory: 384M
+x-store-resources: &store-resources
+  resources:
+    limits:
+      cpus: "0.5"
+      memory: 512M
+x-small-resources: &small-resources
+  resources:
+    limits:
+      cpus: "0.25"
+      memory: 128M
+
+# Fake by design and shared by the app and the initializer, so the pair cannot
+# drift between "the key Garage issued" and "the key the app authenticates with".
+# Garage insists on its own key format: "GK" + 24 hex for the id, 64 hex for the
+# secret. This stand is loopback-only; anything reachable needs real keys.
+x-storage-credentials: &storage-credentials
+  S3_ACCESS_KEY_ID: GKdeadbeefdeadbeefdeadbeef
+  S3_SECRET_ACCESS_KEY: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  S3_BUCKET: uploads
+
+# Both backend copies are the same image with the same configuration — that is
+# the point of the stand, so the definition is written once. The `build:` block
+# is NOT part of it: see backend-a below.
+x-backend: &backend
+  image: liteend-scale:latest
+  restart: unless-stopped
+  deploy: *app-resources
+  environment:
+    # NOT production, and it must not be: the app refuses to boot with
+    # OIDC_MOCK_ENABLED in production. Hard-coded rather than interpolated so no
+    # stray NODE_ENV in a shell or .env can turn this stand into a half-production
+    # one that then fails to start.
+    NODE_ENV: development
+    PORT: "4000"
+    LOG_LEVEL: info
+    # Browser-facing origins of this stand. curl ignores CORS, but this list is
+    # also the GraphQL WebSocket handshake allowlist.
+    CORS_ORIGIN: "http://localhost:${SCALE_HTTP_PORT:-8080},http://localhost:${SCALE_FRONTEND_A_PORT:-8083},http://localhost:${SCALE_FRONTEND_B_PORT:-8084}"
+    DATABASE_HOST: db
+    DATABASE_PORT: "5432"
+    DATABASE_USER: postgres
+    DATABASE_PASSWORD: postgres
+    DATABASE_NAME: postgres
+    # The sizing rule from docs/ENV-CONTRACT.md, applied: copies x DB_POOL_MAX
+    # (2 x 5 = 10) has to stay under the database's max_connections (100 here).
+    DB_POOL_MAX: "5"
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    REDIS_PASSWORD: redis
+    # Exactly one proxy stands in front of the app on this stand — the Caddy
+    # below. The client address is therefore taken one entry from the RIGHT of
+    # X-Forwarded-For, i.e. the entry Caddy appended, so a client that forges the
+    # header still gets rate-limited under its own address.
+    TRUSTED_PROXY_HOPS: "1"
+    <<: *storage-credentials
+    # Two addresses for one storage, never the same value: the app talks to the
+    # S3 API inside this network, the client downloads through Caddy from outside.
+    S3_ENDPOINT: http://garage:3900
+    S3_USE_SSL: "false"
+    S3_PUBLIC_BASE_URL: "http://localhost:${SCALE_HTTP_PORT:-8080}/uploads"
+    # Required by config.Load even though nothing here verifies a token: with
+    # OIDC_MOCK_ENABLED the verifier is never reached. Deliberately unroutable,
+    # so a mistake that DOES try to reach a provider fails loudly.
+    OIDC_ISSUER: http://oidc.invalid/oidc
+    OIDC_AUDIENCE: litestack-scale
+    OIDC_JWKS_URI: http://oidc.invalid/oidc/jwks
+    # LOCAL STAND ONLY. /upload sits behind requireAuth and curl cannot complete
+    # an OIDC login, so the stand authenticates with the `x-mock-sub` header
+    # instead. See .env.example — this is why nothing here may be copied to a
+    # server.
+    OIDC_MOCK_ENABLED: "true"
+  networks:
+    - scale
+  logging: *logging
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    garage-init:
+      condition: service_completed_successfully
+  # No healthcheck here on purpose: the image carries its own (liveness), the
+  # same one an orchestrator would use. Caddy gates TRAFFIC on /readyz instead.
+
+x-frontend: &frontend
+  image: litefront-scale:latest
+  restart: unless-stopped
+  deploy: *app-resources
+  environment:
+    PORT: "3000"
+    # One image, configured only by these values — the property the stand is
+    # here to exercise. They are the addresses of THIS stand as a browser
+    # outside docker would resolve them (SSR itself never calls the API: the
+    # routes that fetch data are ssr: false).
+    VITE_GRAPHQL_API_URL: "http://localhost:${SCALE_HTTP_PORT:-8080}/graphql"
+    VITE_BASE_URL: "http://localhost:${SCALE_HTTP_PORT:-8080}"
+    # No login happens on this stand (curl cannot pass OIDC, and VITE_MOCK_AUTH
+    # is build-time), but these four are required or the server refuses to boot.
+    VITE_OIDC_AUTHORITY: http://oidc.invalid/oidc
+    VITE_OIDC_CLIENT_ID: litestack-scale
+    VITE_OIDC_REDIRECT_URI: "http://localhost:${SCALE_HTTP_PORT:-8080}/callback"
+    VITE_OIDC_SCOPE: "openid profile offline_access"
+    VITE_APP_VERSION: scale-stand
+  networks:
+    - scale
+  logging: *logging
+
+services:
+  # The only container with host ports: everything enters the stand here.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    deploy: *small-resources
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      # 8080 = the stand's public entry (both copies of both sides + the files);
+      # the four below address ONE copy each. Loopback-only.
+      - "127.0.0.1:${SCALE_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${SCALE_BACKEND_A_PORT:-8081}:8081"
+      - "127.0.0.1:${SCALE_BACKEND_B_PORT:-8082}:8082"
+      - "127.0.0.1:${SCALE_FRONTEND_A_PORT:-8083}:8083"
+      - "127.0.0.1:${SCALE_FRONTEND_B_PORT:-8084}:8084"
+    networks:
+      - scale
+    logging: *logging
+    healthcheck:
+      # Caddy's own liveness listener (see the Caddyfile), not an app route: a
+      # proxy that is up must report healthy while the apps behind it are still
+      # booting.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:2020/livez"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      - backend-a
+      - backend-b
+      - frontend-a
+      - frontend-b
+
+  # Copy A of each side is where the image is BUILT, and the only place: two
+  # services building the same tag in one `up` race each other and the loser
+  # dies with "image already exists" (the classic builder does not deduplicate
+  # identical builds). Copy B just runs the tag copy A produced — compose
+  # finishes every build before it creates a single container, so the image is
+  # always there by then, and `pull_policy: never` keeps a missing one an
+  # immediate error instead of a registry lookup for an image that lives only here.
+  #
+  # It is built from the submodule checkout rather than pulled: the stand exists
+  # to test the code sitting in backend/ and frontend/ right now, and
+  # `pull_policy: build` rebuilds it on every `up` instead of reusing a stale tag.
+  backend-a:
+    <<: *backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    pull_policy: build
+  backend-b:
+    <<: *backend
+    pull_policy: never
+
+  frontend-a:
+    <<: *frontend
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    pull_policy: build
+  frontend-b:
+    <<: *frontend
+    pull_policy: never
+
+  # Shared state. All four app containers use these — that is what makes the
+  # copies interchangeable.
+  db:
+    image: postgres:18.1-alpine
+    restart: unless-stopped
+    deploy: *store-resources
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres:/var/lib/postgresql
+    networks:
+      - scale
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8.4-alpine
+    restart: unless-stopped
+    deploy: *small-resources
+    command: redis-server --save "" --loglevel warning --requirepass redis
+    networks:
+      - scale
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis", "--raw", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # S3-compatible object storage. A file uploaded through one backend copy has
+  # to be downloadable without touching that copy again — here is where it lands.
+  garage:
+    image: dxflrs/garage:v2.1.0
+    restart: unless-stopped
+    deploy: *store-resources
+    environment:
+      GARAGE_RPC_SECRET: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+    configs:
+      - source: garage
+        target: /etc/garage.toml
+    volumes:
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    networks:
+      - scale
+    logging: *logging
+    healthcheck:
+      # The image is FROM scratch — no shell, so an exec-form check calling the
+      # garage binary itself is all there is.
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot initializer: a fresh Garage has no layout, no access key and no
+  # bucket, and the stand must come up without manual commands. The garage image
+  # carries no shell to script that with, so this runs alpine with the garage
+  # binary mounted straight out of that image (needs Docker Engine 27.4+ for
+  # `type: image` mounts). Every step is skipped when it is already there, so a
+  # restart or an `up` on existing volumes is a no-op.
+  garage-init:
+    image: alpine:3.21
+    restart: "no"
+    deploy: *small-resources
+    environment:
+      GARAGE_RPC_SECRET: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+      <<: *storage-credentials
+    configs:
+      - source: garage
+        target: /etc/garage.toml
+    volumes:
+      - type: image
+        source: dxflrs/garage:v2.1.0
+        target: /garage-image
+      # Read-only: the CLI only needs this node's public key from here to
+      # address the node over RPC.
+      - garage-meta:/var/lib/garage/meta:ro
+    networks:
+      - scale
+    logging: *logging
+    depends_on:
+      garage:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-euc"]
+    # One list item = one argument = the whole script. "$$" is an escaped "$":
+    # compose interpolates this string before the shell ever sees it.
+    command:
+      - |
+        garage() { /garage-image/garage "$$@"; }
+
+        # Layout: give the single node a role, then commit version 1 — the first
+        # and only layout this one-node cluster ever gets.
+        if garage status | grep -q "NO ROLE ASSIGNED"; then
+          garage layout assign -z dc1 -c 5G "$$(garage node id -q | cut -d@ -f1)"
+          garage layout apply --version 1
+        fi
+
+        # Import the exact key pair the app authenticates with instead of
+        # creating a random one nobody configured.
+        garage key info "$$S3_ACCESS_KEY_ID" >/dev/null 2>&1 ||
+          garage key import --yes -n scale "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY"
+        garage bucket info "$$S3_BUCKET" >/dev/null 2>&1 || garage bucket create "$$S3_BUCKET"
+        garage bucket allow --read --write "$$S3_BUCKET" --key "$$S3_ACCESS_KEY_ID"
+
+        # Public read. Garage refuses anonymous requests on the S3 API outright
+        # ("Garage does not support anonymous access yet"), so public links are
+        # served by its web endpoint, which picks the bucket from the Host
+        # header. Caddy sends the bucket's own name as that Host (see the
+        # Caddyfile), which is a bucket's global alias from creation — so unlike
+        # the submodule's dev stack this needs no extra alias.
+        garage bucket website --allow "$$S3_BUCKET"
+        echo "garage ready: bucket $$S3_BUCKET served publicly"
+
+networks:
+  scale:
+    # Pinned so a scenario can attach an extra container to this stand by a name
+    # that does not depend on the directory it was started from. That is how the
+    # rate-limit scenario gets two DIFFERENT client addresses: requests sent from
+    # the host all reach Caddy as the same docker gateway address, so the two
+    # clients have to be two containers on this network:
+    #   docker run --rm --network litestack-scale-net curlimages/curl -s http://caddy:8080/...
+    name: litestack-scale-net
+
+volumes:
+  postgres: # Postgres data (Redis has none by design: the stand starts empty)
+  garage-meta: # Garage cluster metadata and object index
+  garage-data: # Garage object data (the uploaded files themselves)
+
+# Inline so the whole stand stays in one file. Garage has no environment
+# variables for these settings — only GARAGE_RPC_SECRET, which the services set.
+configs:
+  garage:
+    content: |
+      metadata_dir = "/var/lib/garage/meta"
+      data_dir = "/var/lib/garage/data"
+      db_engine = "lmdb"
+      # One node keeping one copy of every block: a stand, not a cluster.
+      replication_factor = 1
+      rpc_bind_addr = "[::]:3901"
+      # Where garage-init's CLI reaches this node.
+      rpc_public_addr = "garage:3901"
+
+      [s3_api]
+      s3_region = "garage"
+      api_bind_addr = "[::]:3900"
+
+      [s3_web]
+      # Public, unauthenticated reads of the uploaded files: the S3 API above
+      # answers 403 to every anonymous request, so the browser is sent here.
+      # root_domain is not optional — Garage refuses to start without it.
+      bind_addr = "[::]:3902"
+      root_domain = ".web.garage"
+      index = "index.html"

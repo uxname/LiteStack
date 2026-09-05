@@ -1,0 +1,126 @@
+# Caddy for the LiteStack scale-check stand — the only way into the stand.
+#
+# Two jobs. It spreads traffic over both copies of each side (:8080), and it
+# gives every single copy an address of its own (:8081…:8084), because "upload
+# through copy A, read it back through copy B" cannot be asked of a round-robin
+# that picks the copy for you.
+#
+# It also does the two things the scenarios lean on:
+#   * X-Forwarded-For — it APPENDS the real client address to whatever the
+#     client sent (see trusted_proxies below). The backend runs with
+#     TRUSTED_PROXY_HOPS=1 and therefore reads the LAST entry, so a forged
+#     header buys no second rate-limit bucket.
+#   * /uploads — public file links point at this proxy, not at garage:3900,
+#     which nothing outside the container network can reach.
+{
+	# Loopback stand: no certificates to get, and no admin API to expose.
+	auto_https off
+	admin off
+
+	servers {
+		# DELIBERATELY PERMISSIVE, AND ONLY DEFENSIBLE ON THIS STAND.
+		#
+		# Out of the box Caddy DISCARDS an X-Forwarded-For written by an
+		# untrusted client and replaces it with the peer address. That is the
+		# right edge behaviour, but it makes the forged-header scenario prove
+		# nothing about the application: the forged value never reaches it, so
+		# the app's own "read the address from the RIGHT" rule is never
+		# exercised, and a backend that blindly trusted the leftmost entry
+		# would pass just the same.
+		#
+		# Clients of this stand arrive from the docker bridge (a private
+		# range), so trusting private ranges here means Caddy keeps what the
+		# client sent and appends the real address to it. The chain the backend
+		# receives is then "<forged>, <real>" — exactly what a client can
+		# achieve against a real deployment, and what TRUSTED_PROXY_HOPS=1 is
+		# supposed to survive.
+		#
+		# The cost is local-only: Caddy's own {client_ip} (its access log) will
+		# echo whatever a caller claims. Never carry this block to a server.
+		trusted_proxies static private_ranges
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Container liveness. Separate from every application route on purpose: a proxy
+# that is up must report healthy while the apps behind it are still booting.
+:2020 {
+	respond /livez "ok" 200
+}
+
+# ---------------------------------------------------------------------------
+# The stand's public entry: one origin, both sides, both copies of each.
+# ---------------------------------------------------------------------------
+:8080 {
+	# Public file links, handled before anything else. "/uploads/<key>" and the
+	# backend's "POST /upload" are one character apart: written as `/upload*`,
+	# the API matcher below swallows every file link and answers it with the
+	# API's own 404 (measured — this is why that matcher is exact). Matching
+	# these first as well costs nothing and removes the trap for good.
+	#
+	# S3_PUBLIC_BASE_URL is http://localhost:8080/uploads, and a file URL is that
+	# prefix + "/" + object key. handle_path strips the prefix, so Garage sees
+	# the bare key — its web endpoint reads the key from the WHOLE path, and a
+	# leftover prefix would be searched for inside the bucket. The bucket is
+	# chosen by the Host header, hence the rewrite to the bucket's own name (its
+	# global alias since creation).
+	handle_path /uploads/* {
+		reverse_proxy garage:3902 {
+			header_up Host uploads
+		}
+	}
+
+	# The backend's public surface, matched EXACTLY (the dev pages are reachable
+	# per copy below). Exact paths, not prefixes: these are the whole route list
+	# the app mounts, and a prefix here is what stole /uploads/*. /health is
+	# likewise exact, so the frontend's /health.txt is not caught by it.
+	@api path /graphql /upload /livez /readyz /health
+	handle @api {
+		reverse_proxy backend-a:4000 backend-b:4000 {
+			lb_policy round_robin
+			# Traffic is gated on READINESS (database + Redis), while the
+			# container healthcheck baked into the image uses liveness. A copy
+			# that lost its database stops receiving requests instead of being
+			# restarted.
+			health_uri /readyz
+			health_interval 5s
+			health_timeout 3s
+		}
+	}
+
+	# Everything else is the SSR frontend.
+	handle {
+		reverse_proxy frontend-a:3000 frontend-b:3000 {
+			lb_policy round_robin
+			# Static file, same Node process: a probe every few seconds must not
+			# cost a full page render.
+			health_uri /health.txt
+			health_interval 5s
+			health_timeout 3s
+		}
+	}
+}
+
+# ---------------------------------------------------------------------------
+# One address per copy. Same proxy, same X-Forwarded-For handling — the only
+# difference is that the copy is chosen by the caller instead of the balancer.
+# ---------------------------------------------------------------------------
+:8081 {
+	reverse_proxy backend-a:4000
+}
+
+:8082 {
+	reverse_proxy backend-b:4000
+}
+
+:8083 {
+	reverse_proxy frontend-a:3000
+}
+
+:8084 {
+	reverse_proxy frontend-b:3000
+}
