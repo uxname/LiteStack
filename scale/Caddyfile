@@ -88,7 +88,18 @@
 			# restarted.
 			health_uri /readyz
 			health_interval 5s
-			health_timeout 3s
+			# LONGER than the app's own probe budget, on purpose. /readyz pings
+			# Postgres and Redis under a 5s deadline
+			# (`config.HealthCheckTimeout`) derived from the REQUEST context, so
+			# a timeout below 5s here cuts the connection before the app can
+			# answer: every ping still in flight — and every one not started
+			# yet, since the context is already cancelled — fails with "context
+			# canceled", the app writes a `health dependency unavailable` WARN
+			# line for each of them about a dependency that is perfectly alive,
+			# and this proxy drops a healthy copy out of rotation. One failure
+			# path must leave one line (ADR-0004), so the proxy's stopwatch has
+			# to outlast the deadline it is measuring.
+			health_timeout 6s
 		}
 	}
 
@@ -97,7 +108,9 @@
 		reverse_proxy frontend-a:3000 frontend-b:3000 {
 			lb_policy round_robin
 			# Static file, same Node process: a probe every few seconds must not
-			# cost a full page render.
+			# cost a full page render. 3s is enough here, unlike the backend's
+			# 6s above — serving a file has no dependency deadline behind it to
+			# outlast.
 			health_uri /health.txt
 			health_interval 5s
 			health_timeout 3s

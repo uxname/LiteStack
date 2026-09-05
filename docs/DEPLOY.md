@@ -99,7 +99,7 @@ interchangeable. Point each consumer at the right one.
 | URL | Answers | Touches | Point at it |
 |---|---|---|---|
 | `GET /livez` (backend) | "Is this process running?" | nothing external | The **orchestrator's restart probe**. Already the image's `HEALTHCHECK` (`server -healthcheck`) — do not override it. |
-| `GET /readyz` (backend) | "Can this copy serve traffic right now?" | Postgres, Redis, its own heap; 503 when one is unusable | The **reverse proxy's** traffic gate, so a copy with a broken dependency is skipped instead of being restarted. |
+| `GET /readyz` (backend) | "Can this copy serve traffic right now?" | Postgres and Redis — **only** those decide the answer; 503 when one is unusable. The heap reading rides along in the body as diagnostics and never changes the verdict. | The **reverse proxy's** traffic gate, so a copy with a broken dependency is skipped instead of being restarted. |
 | `GET /health` (backend) | same as `/readyz` | same as `/readyz` | An alias, kept so existing monitoring keeps working. New configuration should name `/readyz`. |
 | `GET /health.txt` (frontend) | "Is the SSR server up?" | nothing | Both the image `HEALTHCHECK` and the proxy. It is a static file, so probing it costs no page render. |
 
@@ -107,6 +107,16 @@ The split matters the moment there is more than one copy: every orchestrator
 answers a failed **liveness** probe by killing the container. If liveness pinged
 the database, one database blip would restart the entire fleet at once, instead
 of briefly draining traffic away from it.
+
+**Why only the dependencies decide readiness.** A 503 here means the proxy stops
+sending this copy traffic, so anything that can answer 503 has to be something
+that genuinely makes the copy unusable. The heap is not: the container is capped
+at 512M, every request buffers its body up to 10 MiB, and the reading is taken at
+150 MB — so an ordinary traffic spike crosses it while Postgres and Redis are
+perfectly fine. And since every copy buffers the same way, the same spike crosses
+it on all of them at once: they would all drop out of rotation together, turning
+"slow" into "down". A copy that really is leaking memory is liveness' problem —
+a restart — not readiness'. So the heap is reported and never judged.
 
 ## Running more than one copy
 
@@ -149,12 +159,93 @@ Leave room under it for migrations, `psql` sessions and the dashboards. Cross th
 limit and new connections are refused: copies fail readiness in turn while each
 one, on its own, looks perfectly healthy.
 
-### 3. `TRUSTED_PROXY_HOPS` must equal the number of proxies you actually run
+### 3. The proxy must APPEND `X-Forwarded-For`, and `TRUSTED_PROXY_HOPS` must match it
 
-The client's address is taken from `X-Forwarded-For` counting
-`TRUSTED_PROXY_HOPS` entries **from the right**, because each proxy appends to
-the header and only the rightmost entries were written by a proxy rather than by
-the caller. That address is the rate limiter's key.
+The client's address is taken from `X-Forwarded-For`, counting
+`TRUSTED_PROXY_HOPS` entries **from the right**. That address is the rate
+limiter's key and the `uploader_ip` recorded with every upload, so it has to be
+a value the caller could not have chosen.
+
+**Only your proxy can make that true.** `X-Forwarded-For` is an ordinary
+header: the caller writes whatever it likes, a proxy on the way is *supposed to*
+**append** its own entry, and the rightmost entries are trustworthy *only
+because a proxy put them there*. The application cannot check that — a hop count sees a list of
+addresses, never who wrote which. So if the proxy in front of the app does not
+append the header, the app reads the caller's own value: one forged address per
+request is one fresh rate-limit bucket per request, and a forged `uploader_ip`
+in the database. Nothing in the app can detect it; the requirement is on the
+proxy, and it is not optional.
+
+#### nginx appends nothing unless you tell it to
+
+A bare `proxy_pass` forwards the caller's `X-Forwarded-For` and `X-Real-IP`
+through untouched — which is exactly the silent-hole case above. The two
+`proxy_set_header` lines are what make the counting work:
+
+```nginx
+location / {
+    proxy_pass http://backend:4000;
+
+    # $proxy_add_x_forwarded_for = what the caller sent, plus the address the
+    # connection actually came from. That appended entry is the one the app
+    # counts to, so a request carrying "X-Forwarded-For: 9.9.9.9" arrives as
+    # "9.9.9.9, <real address>" and TRUSTED_PROXY_HOPS=1 reads the real one.
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # $remote_addr OVERWRITES X-Real-IP, so a forged one cannot survive the hop
+    # (see the known limit at the end of this section).
+    proxy_set_header X-Real-IP       $remote_addr;
+
+    proxy_set_header Host $host;
+}
+```
+
+#### Caddy does the opposite: it replaces
+
+Out of the box Caddy **discards** a client-sent `X-Forwarded-For` and writes the
+peer address instead. One entry, nothing forged, `TRUSTED_PROXY_HOPS=1` correct.
+
+That changes the moment you add `trusted_proxies`: for requests coming from a
+listed range Caddy keeps what arrived and appends to it, so every trusted hop is
+one more entry to count. `scale/Caddyfile` in this repo sets `trusted_proxies
+static private_ranges` deliberately — the stand has to be able to push a forged
+header *through* the proxy to test the counting — and says so in place. That
+line belongs to a loopback stand and nowhere else.
+
+Other proxies each have their own default — HAProxy, for one, writes no
+`X-Forwarded-For` at all until `option forwardfor` is set. So whatever sits in
+front, check it rather than trust a paragraph:
+
+#### Check it in one request
+
+`LOG_LEVEL=info` (the default) writes an `http_request` line for every request,
+and its `remote` field is the address the app settled on. So ask the app:
+
+```bash
+# Through your public entry point, from anywhere. 9.9.9.9 stands in for any
+# address you do not own.
+curl -s -o /dev/null -H 'X-Forwarded-For: 9.9.9.9' https://api.example.com/livez
+
+# Then read the line that request just wrote:
+docker compose -f docker-compose.prod.yml logs --tail=5 app | grep http_request
+```
+
+| `remote` in that line | Verdict |
+|---|---|
+| your own public address | Correct: the proxy appended and the hop count matches. |
+| `9.9.9.9` | **Broken and exploitable.** The proxy is not appending. Fix the proxy — no hop count can repair this. |
+| the proxy's own address | `TRUSTED_PROXY_HOPS` is too low, so every client shares one bucket. |
+
+The limiter itself gives the same answer from the other end: its Redis key *is*
+the address it counted.
+
+```bash
+# rate:rl:<ip>, or rate:rl:auth:<ip> for /graphql and /upload
+redis-cli --scan --pattern 'rate:rl:*'
+```
+
+A `rate:rl:9.9.9.9` key means the forged value bought its own bucket.
+
+#### Counting the hops
 
 The default of `1` is one proxy — your own Caddy, Traefik or nginx. **Two is a
 realistic number**: a cloud load balancer or CDN in front of your own proxy adds
@@ -174,6 +265,22 @@ Both mistakes are silent — nothing logs, nothing 500s:
 
 Count the proxies between the internet and the container and set the number to
 that.
+
+#### Known limit: `X-Real-IP` is believed without counting
+
+When a request arrives with **no** `X-Forwarded-For` at all, the app falls back
+to `X-Real-IP` as long as `TRUSTED_PROXY_HOPS >= 1`. That header carries no
+chain, so there is nothing to count and nothing to verify: it is believed on the
+proxy's word alone. And no proxy strips it for you — Caddy passes a client-sent
+`X-Real-IP` through unchanged, and so does nginx with a bare `proxy_pass`. On a
+deployment whose proxy sets neither header, one `X-Real-IP` header lets a caller
+pick its own rate-limit key.
+
+The support is deliberate: nginx setups overwhelmingly send exactly this header,
+and refusing it would break the most common deployment there is. Two ways to
+close it — the `proxy_set_header X-Real-IP $remote_addr;` line above, which
+overwrites the caller's value with the real one, or `TRUSTED_PROXY_HOPS=0`,
+which ignores both headers at the cost of having no proxy in front of the app.
 
 ## Production — recommended path: Dokploy
 
@@ -324,6 +431,33 @@ Links are public and permanent: the bucket is readable, and a file's name is a
 UUID, so the URL is unguessable but not access-controlled. Do not put anything
 in there that must be authorized to read. Back the bucket up with your storage
 provider's own tooling; the app never keeps a second copy.
+
+**Known limit: orphaned objects, and nothing collects them.** An upload is two
+steps — write the object to the bucket, then insert the row that points at it —
+and the two cannot be one transaction; object storage has no transaction to join.
+Two ways an object ends up with no row pointing at it:
+
+1. **The gap between the steps.** A failed insert does trigger a best-effort
+   delete of the object just written, but "best effort" is the whole guarantee:
+   kill the process, or lose the network to the storage, in that gap and the
+   object stays.
+2. **A write that fails after it succeeded.** The storage can time out *after*
+   the bytes have landed — the app is told "failed" about an object that exists.
+   It is left alone deliberately: deleting it would mean one more call, with one
+   more timeout, against the same storage that is already not answering, on
+   every single failing upload.
+
+What does hold on every failure path is the invariant that matters: **no row
+ever points at an object that is not there.** A leftover object is invisible and
+costs storage; a row pointing into nothing would be a broken image in somebody's
+profile.
+
+There is no sweeper in the app and no lifecycle rule on the bucket, so the cost
+is storage and only storage — an unreferenced key is a UUID nobody has. If a
+bucket ever grows in a way the row count cannot explain, the two ways out are a
+lifecycle rule on the storage side (expire objects under a prefix) or a scan
+that lists keys and looks each one up in the column holding the file URLs.
+Neither is set up for you.
 
 ## Backups
 
