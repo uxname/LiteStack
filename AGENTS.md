@@ -65,7 +65,6 @@ mistakes become tomorrow's rules.
 | **Why** something is the way it is — repo topology, no CI, living diagrams | [docs/adr/](./docs/adr/) |
 | "See" what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
 | Triage a failure from the logs — which line to grep, how the two sides join | [backend/docs/DEBUGGING.md](./backend/docs/DEBUGGING.md) + the frontend file above |
-| Known open issues and what was already audited | latest `docs/audits/*/audit-report.md` — the directory does **not exist in the template**; the first audit run creates it |
 | Anything backend-specific | [backend/AGENTS.md](./backend/AGENTS.md) |
 | Anything frontend-specific | [frontend/AGENTS.md](./frontend/AGENTS.md) |
 
