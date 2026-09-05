@@ -127,6 +127,16 @@ if [[ "$PROBE" == 1 ]]; then
   fi
 fi
 
+# 7. Multi-copy stand (scale/) — pointers, not checks. Its config files are gated on
+# commit (`npm run scale:validate`, wired in lefthook.yml) and the stand itself is
+# started by hand, so there is nothing here for this script to verify.
+echo
+echo "Scale stand (scale/)"
+echo "  validate its config: npm run scale:validate"
+if [[ -f "$ROOT/scripts/scale-check.sh" ]]; then
+  echo "  run the scenarios:   scripts/scale-check.sh (starts the stand; takes minutes)"
+fi
+
 echo
 if [[ "$FAIL" -gt 0 ]]; then
   echo "FAILED: $FAIL mismatch(es), $WARN warning(s). See docs/ENV-CONTRACT.md."

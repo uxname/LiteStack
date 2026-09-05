@@ -6,3 +6,6 @@
 
 # Meta-repo tooling deps (LikeC4 CLI + scripts)
 /node_modules/
+
+# The scale stand is configured by env vars with defaults; a local override is private.
+/scale/.env

@@ -1,0 +1,17 @@
+# Git hooks for the meta-repo. There is no CI (docs/adr/0001-no-ci-gates-live-in-git-hooks.md),
+# so this hook is the only thing that reads the scale stand's config before it lands.
+#
+# Thin on purpose, like the submodules' hooks: the logic lives in an npm script,
+# so the same check runs by hand with `npm run scale:validate`.
+#
+# Installed by `npm install` at the meta root (the `prepare` script in package.json),
+# which `scripts/setup.sh` already runs — a clone that skipped it has no hook, exactly
+# as in `backend/` and `frontend/`.
+pre-commit:
+  commands:
+    scale:
+      # Syntax only: `docker compose config -q` on the stand's compose file and
+      # `caddy validate` on its Caddyfile. It never starts the stand — that is a
+      # manual step (scripts/scale-check.sh), far too slow for a commit hook.
+      # Both checks skip themselves when their binary is missing.
+      run: npm run scale:validate
