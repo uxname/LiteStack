@@ -39,14 +39,16 @@ backend schema), then frontend PR, then the meta pointer bump. See the `full-sta
 ## Quality gates (no CI)
 
 There is **no CI service** — LiteStack is a template and forks may run on any host (GitLab,
-Gitea, Drone, …), so the entire quality guarantee lives in each submodule's lefthook git hooks.
-Fast checks run on `pre-commit`; the slow, full gate runs on `pre-push` (the last line before
-code leaves the machine).
+Gitea, Drone, …), so the entire quality guarantee lives in lefthook git hooks. In the two
+submodules, fast checks run on `pre-commit` and the slow, full gate on `pre-push` (the last
+line before code leaves the machine); the meta-repo has a small `pre-commit` of its own for
+the artefacts it owns.
 
 | Repo | pre-commit | pre-push |
 |---|---|---|
 | **backend** (Go) | `task check` (codegen-freshness, build, lint, arch, deadcode, vuln, fmt, tidy, secrets) | `task test:cov` (unit + integration via testcontainers + coverage floors; needs Docker) |
 | **frontend** (npm) | `npm run verify:commit` (`check` + gitleaks `secrets`) | `npm run verify:push` (`verify:commit` + `test:cov` + Playwright E2E + Storybook build) |
+| **meta** (npm) | `npm run scale:validate` (compose + Caddyfile syntax) and `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)) | — (nothing slow to run) |
 
 Hooks are thin — they just call those npm/task scripts, so you can run the exact same gate by
 hand. `--no-verify` skips them and nothing else will catch it, so don't. Frontend E2E tests are
