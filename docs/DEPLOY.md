@@ -418,9 +418,17 @@ owns TLS and the public ports; the app containers publish nothing.
    variables against any `litefront` tag. To run the source in this checkout
    instead, `frontend/docker-compose.yml` has `pull_policy: build` and rebuilds
    on every `up`.
-4. **Point the proxy at the container names** on that network, `app:4000` and
-   `app:3000`, and health-gate them on `/readyz` and `/health.txt`. With several
-   copies, Docker's DNS returns every copy's address for the service name.
+4. **Point the proxy at `liteend:4000` and `litefront:3000`** on that network,
+   and health-gate them on `/readyz` and `/health.txt`. With several copies,
+   Docker's DNS returns every copy's address for the name, which is how the
+   proxy load-balances across them.
+
+   Use those two names, **not** the bare `app`. Both prod composes name their
+   service `app`, so on one shared network `app` resolves to *both* sides at
+   once and a proxy asking for `app:4000` can be handed the frontend container.
+   Each file therefore adds a per-side network alias (`liteend` / `litefront`);
+   the service's own `app` alias stays, it is simply ambiguous. `scale/` shows
+   the same shape with its own per-copy names (`backend-a`, `frontend-a`, …).
 
 `scale/` in this repo is a working example of exactly this shape — two copies of
 each side behind one Caddy — and its `Caddyfile` is a fine starting point for
