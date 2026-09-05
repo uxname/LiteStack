@@ -28,8 +28,12 @@ manager, bmad-method, etc.).
 LiteStack/
 ├── AGENTS.md                  # entry point: meta-project model, cross-project rules, two-mode git
 ├── CLAUDE.md                  # pointer to AGENTS.md
-├── package.json               # meta tooling: LikeC4 CLI (devDep), likec4:* scripts
-├── .agents/                    # cross-project instruction files AGENTS.md routes to
+├── package.json               # meta tooling: LikeC4 CLI + lefthook (devDeps), likec4:*/scale:* scripts
+├── lefthook.yml               # the meta-repo's own git hook (see "Meta-repo git hook")
+├── .agents/                   # cross-project instruction files AGENTS.md routes to
+├── docs/                      # deploy runbook, env contract, ADRs, the LikeC4 model
+├── scripts/                   # setup.sh, doctor.sh (env contract), scale-check.sh
+├── scale/                     # local multi-copy stand: 2+2 copies behind one Caddy
 ├── backend/                   # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
 ├── frontend/                  # submodule → litefront (Vite · React 19 · URQL)
 └── .claude/skills/            # the four cross-project skills
@@ -79,6 +83,7 @@ no `package.json`**:
 ```bash
 ( cd backend  && task setup )    # Go deps + git hooks + codegen + local db/redis
 ( cd frontend && npm install )   # npm deps + git hooks (via postinstall)
+npm install                      # meta root: LikeC4 CLI + this repo's own git hook
 ```
 
 Then create each `.env` (nothing does it for you at the meta level) and verify the
@@ -114,8 +119,8 @@ Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
   `:4000/graphql` + gqlgen playground). First-time full onboarding: `task setup`.
 - **Frontend** (`frontend/`): `cp .env.example .env` → `npm run gen` (backend must be up)
   → `npm run start:dev` (serves at `:3000`).
-- **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS):
-  see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
+- **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS,
+  running more than one copy of each side): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
 Cross-project value contracts (must agree across the two `.env` files):
 
@@ -124,6 +129,53 @@ Cross-project value contracts (must agree across the two `.env` files):
 | `VITE_GRAPHQL_API_URL` = `…:4000/graphql` | `PORT` = `4000` | where the SPA reaches the API |
 | `VITE_OIDC_API_RESOURCE` = `…:4000` | `OIDC_AUDIENCE` = `…:4000` | token `aud` match |
 | `VITE_BASE_URL` = `…:3000` | `CORS_ORIGIN` includes `…:3000` | CORS allow |
+
+## Meta-repo git hook
+
+The meta-repo has a `pre-commit` hook of its own, alongside the submodules'. It is
+installed by `npm install` at the meta root — the `prepare` script runs
+`lefthook install`, and `scripts/setup.sh` already does that for you. A clone that
+skipped the install simply has no hook, exactly as in `backend/` and `frontend/`.
+
+It runs one thing, `npm run scale:validate`, which syntax-checks the stand below:
+`docker compose config -q` on `scale/docker-compose.yml` and `caddy validate` on
+`scale/Caddyfile`. Each check skips itself when its binary is missing, and neither
+starts anything — a commit hook has no business waiting on containers. There is no
+CI behind it (see [`docs/adr/0001-no-ci-gates-live-in-git-hooks.md`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)),
+so don't commit with `--no-verify`.
+
+## The multi-copy stand (`scale/`)
+
+`scale/` runs the whole product the way a server runs it with more than one copy of
+each side: **two backends, two frontends, one Caddy in front of them**, and the state
+they share (Postgres, Redis, and a Garage object store). It exists to answer one
+question — is any part of the product pinned to a single copy? — and
+`scripts/scale-check.sh` drives four scenarios through it: a file uploaded via one
+backend read back through the other, rate limits keyed on an address the client
+cannot choose, the page served by either frontend, and a subscription published on
+one copy arriving at a client on the other.
+
+```bash
+docker compose -f scale/docker-compose.yml up -d --wait   # builds both sides from this checkout
+scripts/scale-check.sh                                    # prints ok / not ok per check
+docker compose -f scale/docker-compose.yml down -v
+```
+
+Four things to know before you read anything into a green run:
+
+- **You start it by hand.** The git hook only checks its config files. Bringing the
+  stand up takes minutes on the first run (a Go build plus an npm ci and a Vite
+  build) — far too slow for a commit.
+- **It needs Docker Engine 27.4 or newer.** The Garage initializer mounts the Garage
+  binary straight out of its image (`type: image`, added in 27.4), which is the only
+  way to run that CLI: the image is built `FROM scratch` and has no shell.
+- **It is not a model of production.** It runs with `NODE_ENV=development` and mock
+  authentication, because the backend refuses to boot with mock auth in production
+  and `curl` cannot complete a real OIDC login. Never copy this stand, or that flag,
+  onto a shared host. Its *shape* — no host ports on the app containers, everything
+  through the proxy — is the part worth copying.
+- **It writes data.** It uploads a file and edits the stand's mock profile;
+  `down -v` wipes all of it.
 
 ## Deriving a new project
 

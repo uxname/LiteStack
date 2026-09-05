@@ -100,3 +100,8 @@ provider inside the bundle, and that must not be flippable on a running containe
 - The proof that copies are interchangeable is a stand someone has to start. Nothing runs
   it automatically, so a regression here is found the next time someone looks — the
   accepted cost of having no CI.
+- `VITE_SENTRY_DSN` moved with the other public values and is now read at startup, so the
+  aside in meta ADR-0004 that calls the frontend's Sentry "build-time-baked" is out of date
+  from here on. That record is not edited (this folder supersedes, it never rewrites); the
+  reason it gave for keeping the server log as the primary copy is untouched — an optional
+  DSN is still optional.
