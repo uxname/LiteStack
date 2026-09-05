@@ -4,7 +4,7 @@
   "private": true,
   "description": "LiteStack meta-repo — coordination layer over the backend/frontend submodules. Holds no app code; owns cross-project tooling (LikeC4 diagrams, scripts).",
   "scripts": {
-    "likec4:validate": "likec4 validate docs/architecture/likec4",
+    "likec4:validate": "out=$(likec4 validate docs/architecture/likec4 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; case \"$out\" in *\"(0 files)\"*) echo \"likec4: no files were parsed - the model path is wrong or the model is gone\" >&2; exit 1;; esac",
     "likec4:start": "likec4 start docs/architecture/likec4",
     "scale:validate": "if command -v docker >/dev/null 2>&1; then docker compose -f scale/docker-compose.yml config -q; else echo 'docker not installed — skipping compose check'; fi && if command -v caddy >/dev/null 2>&1; then caddy validate --config scale/Caddyfile --adapter caddyfile; elif command -v docker >/dev/null 2>&1; then docker run --rm -v \"$PWD/scale/Caddyfile:/etc/caddy/Caddyfile:ro\" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; else echo 'neither caddy nor docker — skipping Caddyfile check'; fi",
     "prepare": "lefthook install || true"

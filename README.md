@@ -141,11 +141,18 @@ installed by `npm install` at the meta root — the `prepare` script runs
 `lefthook install`, and `scripts/setup.sh` already does that for you. A clone that
 skipped the install simply has no hook, exactly as in `backend/` and `frontend/`.
 
-It runs one thing, `npm run scale:validate`, which syntax-checks the stand below:
-`docker compose config -q` on `scale/docker-compose.yml` and `caddy validate` on
-`scale/Caddyfile`. Each check skips itself when its binary is missing, and neither
-starts anything — a commit hook has no business waiting on containers. There is no
-CI behind it (see [`docs/adr/0001-no-ci-gates-live-in-git-hooks.md`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)),
+It runs two things, both fast and neither starting anything — a commit hook has no
+business waiting on containers:
+
+- `npm run scale:validate` syntax-checks the stand below: `docker compose config -q` on
+  `scale/docker-compose.yml` and `caddy validate` on `scale/Caddyfile`. Each check skips
+  itself when its binary is missing.
+- `npm run likec4:validate` parses the architecture model, as
+  [`ADR-0003`](./docs/adr/0003-living-likec4-model.md) requires. It also fails when the
+  validator reports `Valid (0 files)` — an empty or misplaced model directory validates
+  green and would prove nothing.
+
+There is no CI behind either (see [`docs/adr/0001-no-ci-gates-live-in-git-hooks.md`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)),
 so don't commit with `--no-verify`.
 
 ## The multi-copy stand (`scale/`)

@@ -1,8 +1,9 @@
 # Git hooks for the meta-repo. There is no CI (docs/adr/0001-no-ci-gates-live-in-git-hooks.md),
-# so this hook is the only thing that reads the scale stand's config before it lands.
+# so this hook is the only thing that reads the meta-repo's own artefacts — the scale
+# stand's config and the LikeC4 model — before they land.
 #
-# Thin on purpose, like the submodules' hooks: the logic lives in an npm script,
-# so the same check runs by hand with `npm run scale:validate`.
+# Thin on purpose, like the submodules' hooks: the logic lives in npm scripts, so the
+# same checks run by hand with `npm run scale:validate` / `npm run likec4:validate`.
 #
 # Installed by `npm install` at the meta root (the `prepare` script in package.json),
 # which `scripts/setup.sh` already runs — a clone that skipped it has no hook, exactly
@@ -15,3 +16,9 @@ pre-commit:
       # manual step (scripts/scale-check.sh), far too slow for a commit hook.
       # Both checks skip themselves when their binary is missing.
       run: npm run scale:validate
+
+    likec4:
+      # ADR-0003 requires the model to stay valid, and with no CI this hook is the
+      # only thing that enforces it. The npm script also fails on "Valid (0 files)":
+      # an empty or misplaced model directory validates green and proves nothing.
+      run: npm run likec4:validate
