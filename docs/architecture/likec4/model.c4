@@ -13,63 +13,97 @@
 // shared contracts. The diagram shows the system as it lives in production,
 // plus the "build server → registry → run server" deployment path from
 // docs/DEPLOY.md.
+//
+// READ THIS FIRST — both apps run in SEVERAL IDENTICAL COPIES ("replicas")
+// behind one reverse proxy: `docker compose -f docker-compose.prod.yml up -d
+// --scale app=N`. Copies are drawn as a stack of cards. Nothing that would
+// make one copy special is allowed to exist: no host port, no local disk, no
+// state kept inside the process. Everything shared — the database, Redis and
+// the object storage — sits outside the copies, and THAT is what lets any
+// copy answer any request.
 
 specification {
   element actor { style { shape person } }        // a human at the keyboard
   element system                                   // a ready-made external system
   element container                                // an app or a data store
-  element infrastructure                            // machines and the image registry
+  element infrastructure                            // machines, the registry, the test stand
 }
 
 model {
   user = actor 'User' {
-    description 'A person in a browser: opens the site, signs in via Logto, works with data.'
+    description 'A person in a browser: opens the site, signs in via Logto, works with data. Downloads uploaded files straight from the object storage — see the "How an uploaded file reaches the user" view.'
   }
 
   engineer = actor 'Engineer (DevOps)' {
-    description 'Builds and ships images by hand. The template has NO CI by design: all checks live in the submodules git hooks, and every deploy is an explicit command from docs/DEPLOY.md.'
+    description 'Builds and ships images by hand, and runs the scale-check stand before shipping. The template has NO CI by design: all checks live in git hooks (the submodules check their own code; the meta-repo hook only validates the stand configuration), and every deploy is an explicit command from docs/DEPLOY.md.'
   }
 
   lstack = system 'LiteStack' {
     description 'The product that comes out of the template: frontend, backend and their data. The meta-repo only glues the two submodules together and holds the shared contracts (ENV-CONTRACT, DEPLOY).'
 
     // The reverse proxy is the only container on this diagram that no template
-    // compose file defines: it is Traefik from Dokploy or the host own nginx.
-    // Both apps publish on 127.0.0.1 only, so nothing is reachable from
-    // outside without it.
+    // compose file defines: it is Traefik from Dokploy, the host own nginx, or
+    // the Caddy of the scale stand. Neither app publishes a host port, so
+    // nothing is reachable from outside without it, and the apps find each
+    // other by service name on the shared docker network (PROXY_NETWORK).
     proxy = container 'Reverse proxy (TLS)' {
-      description 'Accepts HTTPS from the internet and forwards to the apps. Not part of the template — the hosting provides it (Traefik in Dokploy or your own nginx); it also terminates TLS.'
+      description 'The only way in from the internet. Three jobs. (1) It terminates HTTPS. (2) It spreads incoming requests across the copies of both apps, one after another (round robin), so the outside world sees a single address instead of N. (3) It decides WHICH copies get traffic, by polling their health endpoints and skipping the ones that stop answering. It is also what appends the caller real address to the X-Forwarded-For header — the header the backend rate limit is keyed on. Not part of the template: the hosting provides it.'
+      technology 'Traefik / nginx / Caddy'
     }
 
     web = container 'Frontend «litefront»' {
-      description 'Renders pages server-side (SSR) and serves static assets to the browser. All VITE_* values are baked into the JS bundle at build time, so one image fits exactly one environment; at runtime it reads only PORT=3000. Healthcheck — wget on the static /health.txt (no SSR render per probe) — is baked into the Dockerfile.'
+      description 'Renders pages server-side (SSR) and serves static assets to the browser. Runs in several identical copies and keeps no state of its own, so any copy can render any page. ONE built image runs in EVERY environment: the public VITE_* values are read from the container environment when the server boots and handed to the browser inside the HTML (a window global), so moving the same image to another environment is a restart with different variables, never a rebuild. A missing required variable kills the process at boot and names it in the log — before the port is bound, so a half-configured copy never reports healthy. Healthcheck: wget on the static /health.txt, which costs no page render per probe. The container always listens on 3000 and publishes no host port (a fixed host port is exactly what stops a second copy from starting).'
       technology 'Vite · React 19 · TanStack Start · Nitro (Node 22)'
+      style {
+        multiple true
+      }
     }
 
     api = container 'Backend «liteend»' {
-      description 'GraphQL API: queries via POST /graphql, subscriptions over WebSocket (graphql-transport-ws protocol), file upload /upload (served at /uploads). On every startup it applies goose migrations itself — forward only, there is no schema rollback. The container always listens on port 4000. Healthcheck (/app/server -healthcheck) is baked into the Dockerfile.'
-      technology 'Go · gqlgen · sqlc · goose · Asynq'
+      description 'GraphQL API: queries via POST /graphql, subscriptions over WebSocket (graphql-transport-ws protocol), file upload via POST /upload. Runs in several identical copies and writes nothing to its own disk — an uploaded file goes straight to the object storage, so the next request may safely land on any other copy. TWO health endpoints, on purpose: /livez means "the process is running" and touches no database (the container HEALTHCHECK uses it, and a failed one gets the container restarted — a probe that pinged the database would restart the whole fleet the moment the database blinked), while /readyz means "I can take traffic right now" and does ping Postgres and Redis (the proxy uses it to route around a copy that lost a dependency). /health is kept as an older name for readiness. There is NO route that serves files back: downloads go to the storage directly. On startup every copy applies its goose migrations under a Postgres advisory lock — a database-wide "one at a time" flag — so copies booting together do not race: one migrates, the rest wait and find nothing to do. Migrations are forward only; there is no schema rollback. The container always listens on 4000 and publishes no host port.'
+      technology 'Go · gqlgen · sqlc · goose · Asynq · minio-go'
+      style {
+        multiple true
+      }
     }
 
     db = container 'PostgreSQL' {
-      description 'The primary data store. In production it is a separate external service (e.g. a Dokploy native service with backups) — docker-compose.prod.yml deliberately does not include it; locally backend/docker-compose.yml brings it up.'
+      description 'The primary data store, SHARED by every backend copy — that sharing is what makes the copies interchangeable. In production it is a separate external service (e.g. a Dokploy native service with backups); docker-compose.prod.yml deliberately does not include it. Locally backend/docker-compose.yml brings it up.'
       technology 'PostgreSQL'
     }
 
     cache = container 'Redis' {
-      description 'Asynq background-job queue and backend housekeeping. Like Postgres — an external service in production, brought up by the backend compose in dev.'
+      description 'Shared by every backend copy and doing two jobs: it holds the Asynq background-job queue, and it carries GraphQL subscription events between copies (a Redis pub/sub channel). The second one is what keeps subscriptions working with N copies: the browser socket is held by one copy while the event may be published by another. Like Postgres — an external service in production, brought up by the backend compose in dev.'
       technology 'Redis'
     }
 
-    proxy -> web 'forwards requests to the SSR app' 'On the host the container is published at 127.0.0.1:3000; the host-side number of the port mapping is picked by the PORT variable.'
-    proxy -> api 'proxies requests to the API' 'On the host — 127.0.0.1:4000; PORT selects the host-side port, inside the container it is always 4000.'
+    files = container 'Object storage (S3-compatible)' {
+      description 'Holds every uploaded file, and is shared by every backend copy. "S3-compatible" means it speaks the same HTTP protocol as Amazon S3, so any server implementing it fits: Garage (what the dev compose and the scale stand run), MinIO, or a cloud bucket. Its bucket is PUBLIC FOR READING: a file link never expires and needs no token, and the only thing keeping a link unguessable is the file name — a random UUID. In production it is an external service, addressed by two different values: S3_ENDPOINT is how the APP reaches it from inside the network, S3_PUBLIC_BASE_URL is the link prefix the BROWSER resolves from outside. The two are never the same string.'
+      technology 'Garage / MinIO / any S3 API'
+    }
+
+    proxy -> web 'spreads page requests across the copies' {
+      description 'Round robin over every frontend copy on port 3000, found by docker service name on the shared network. Adding a copy is `--scale app=N` and nothing else — no port to pick, no config to edit.'
+      technology 'HTTP'
+    }
+    proxy -> web 'asks: is this copy still alive?' 'Polls the static /health.txt every few seconds. A copy that stops answering is dropped from rotation until it answers again.'
+
+    proxy -> api 'spreads API requests across the copies' {
+      description 'Round robin over every backend copy on port 4000. The proxy APPENDS the caller real address on the RIGHT of X-Forwarded-For; the backend counts TRUSTED_PROXY_HOPS entries from the right (default 1) to find the client. That is why a client who forges the header gets no fresh rate-limit bucket: whatever it wrote stays to the left and is ignored.'
+      technology 'HTTP + X-Forwarded-For'
+    }
+    proxy -> api 'asks: may this copy take traffic?' 'Polls /readyz every few seconds; that endpoint pings Postgres and Redis. A copy that lost its database is taken OUT OF ROTATION rather than restarted — restarting is what the liveness probe (/livez) in the image HEALTHCHECK is for.'
 
     web -> api 'sends GraphQL queries' {
-      description 'POST /graphql with an Authorization: Bearer <JWT> header; subscriptions take the same route over WebSocket. The API address (VITE_GRAPHQL_API_URL) is baked into the bundle at build time — moving the API domain requires rebuilding the frontend. The backend CORS_ORIGIN must include the frontend origin, or the browser blocks the requests and WebSocket subscriptions die with 403. Failed responses carry extensions.requestId — the id the backend stamps on every log line of that request; the frontend keeps it and shows it in the error screen, so one id joins both logs.'
+      description 'POST /graphql with an Authorization: Bearer <JWT> header; subscriptions take the same route over WebSocket. The API address (VITE_GRAPHQL_API_URL) is read from the container environment at boot, so pointing the same image at another API is a restart, not a rebuild. The backend CORS_ORIGIN must include the frontend origin, or the browser blocks the requests and WebSocket subscriptions die with 403. Failed responses carry extensions.requestId — the id the backend stamps on every log line of that request; the frontend keeps it and shows it in the error screen, so one id joins both logs.'
       technology 'HTTPS/JSON + graphql-transport-ws'
     }
-    api -> db 'reads and writes data' 'SQL through sqlc. At container startup the embedded goose applies migrations forward-only: rolling the image back does NOT roll the schema back (see DEPLOY.md).'
-    api -> cache 'enqueues background jobs' 'Asynq jobs live in Redis; in dev the queue is watched via the Asynqmon dashboard.'
+    api -> db 'reads and writes data' 'SQL through sqlc, against the one shared database. Each copy opens up to DB_POOL_MAX connections, so keep "number of copies × DB_POOL_MAX" below the database connection limit — otherwise the last copy to start cannot connect at all. At startup the embedded goose applies migrations under an advisory lock, forward-only: rolling the image back does NOT roll the schema back (see DEPLOY.md).'
+    api -> cache 'queues jobs and publishes events' 'Asynq background jobs live in Redis, so a job queued by one copy may be executed by another. Subscription events go to a Redis pub/sub channel for the same reason — the copy holding the client socket is usually not the copy that published. In dev the queue is watched via the Asynqmon dashboard.'
+    api -> files 'stores the uploaded file' {
+      description 'PutObject through minio-go. The object key is a date folder plus a random UUID plus the sanitised extension — the extension is the only part taken from the client, and it is filtered, because a "/" or ".." inside a key would lift the object out of its folder. The app keeps no copy of the bytes and answers with an ABSOLUTE link (S3_PUBLIC_BASE_URL + key) which is what gets stored in the database.'
+      technology 'S3 API (minio-go)'
+    }
   }
 
   logto = system 'Logto (OIDC)' {
@@ -77,7 +111,7 @@ model {
   }
 
   registry = infrastructure 'Container registry' {
-    description 'Docker image storage: a Docker Hub namespace, ghcr.io, or your own self-hosted server. The name comes from IMAGE_REGISTRY (with a trailing slash), the tag from IMAGE_TAG (defaults to latest).'
+    description 'Docker image storage: a Docker Hub namespace, ghcr.io, or your own self-hosted server. The name comes from IMAGE_REGISTRY (with a trailing slash), the tag from IMAGE_TAG (defaults to latest). One tag now names the code and nothing else — the same frontend tag is meant to run in every environment.'
   }
 
   buildsrv = infrastructure 'Build server' {
@@ -85,16 +119,34 @@ model {
   }
 
   runsrv = infrastructure 'Run server' {
-    description 'The machine that runs the images: docker compose -f docker-compose.prod.yml pull && up -d. A .env file is NOT required: the frontend needs nothing at runtime, the backend is satisfied by exported environment variables — missing required ones fail the deploy loudly, naming the variable.'
+    description 'The machine that runs the images: docker compose -f docker-compose.prod.yml pull && up -d --scale app=N. Every copy of a side is started from the same image with the same variables; the shared Postgres, Redis and object storage are addressed by environment variables (DATABASE_HOST, REDIS_HOST, S3_ENDPOINT) and are NOT in the compose files. A missing required variable fails the deploy loudly, naming the variable, before any container starts.'
+  }
+
+  // Deliberately OUTSIDE the lstack boundary: the stand is not part of the
+  // product, it is a local test rig in the meta-repo (scale/) that an engineer
+  // runs by hand — same family as the build and run servers above. It runs two
+  // copies of each side behind one Caddy plus its own Postgres, Redis and
+  // Garage, and scripts/scale-check.sh drives the scenarios against it. Its
+  // internals are not drawn: they are a throwaway mirror of what the views
+  // below already show, and drawing them would suggest Caddy and Garage ship
+  // with the product, which they do not.
+  stand = infrastructure 'Scale-check stand (local, scale/)' {
+    description 'A local rig that proves the copies are interchangeable BEFORE a release, since there is no CI. `docker compose -f scale/docker-compose.yml up -d --wait` brings up two copies of each side behind one Caddy, with a shared Postgres, Redis and a self-initialising Garage; then scripts/scale-check.sh runs four scenarios and prints ok/not ok for each: a file uploaded through copy A is downloadable and readable through copy B, two clients behind the proxy get independent rate-limit buckets while a forged X-Forwarded-For gets none, pages render on both frontend copies, and a subscription opened on one copy receives what another copy published. Not part of the product and never deployed.'
+    technology 'docker compose · Caddy · Garage'
   }
 
   user -> lstack.proxy 'opens the site over HTTPS'
+  user -> lstack.files 'downloads uploaded files DIRECTLY' {
+    description 'The link kept in the database points straight at the storage (S3_PUBLIC_BASE_URL — either the storage own public domain, or a path the reverse proxy forwards to it). The browser fetches the bytes from there and the application is not involved at all: no backend route serves files, and no copy could serve them anyway, since none of them holds the file. The link is permanent and public, so the browser caches it and server-side rendering stays stable.'
+    technology 'HTTP GET'
+  }
 
-  lstack.web -> logto 'redirects to sign-in (OIDC PKCE)' 'A redirect to Logto and back with the code; the tenant address (VITE_OIDC_AUTHORITY) is baked into the bundle at build time.'
+  lstack.web -> logto 'redirects to sign-in (OIDC PKCE)' 'A redirect to Logto and back with the code; the tenant address (VITE_OIDC_AUTHORITY) comes from the container environment at boot, so one image signs in against any tenant.'
   lstack.api -> logto 'verifies the JWT against JWKS' 'Fetches public keys (OIDC_JWKS_URI) and checks the audience (OIDC_AUDIENCE). The audience must equal the frontend VITE_OIDC_API_RESOURCE — otherwise 401 on every request.'
 
   engineer -> buildsrv 'builds the images'
-  buildsrv -> registry 'pushes the images' 'docker push <IMAGE_REGISTRY>liteend|litefront:<IMAGE_TAG>; for a private registry — docker login first. Tags are strictly per environment: prod-v1.2.0, staging-v1.2.0 — never a shared latest.'
+  buildsrv -> registry 'pushes the images' 'docker push <IMAGE_REGISTRY>liteend|litefront:<IMAGE_TAG>; for a private registry — docker login first. The frontend image carries no environment inside it any more, so the very same tag can be promoted from staging to production without a rebuild.'
+  engineer -> stand 'runs the scale check before shipping' 'Brings the stand up by hand and runs scripts/scale-check.sh. Never in a git hook: starting four containers is far too slow for a commit, so the hook only validates the stand compose file and Caddyfile syntax.'
   engineer -> runsrv 'ships the release'
   runsrv -> registry 'pulls the images' 'docker compose -f docker-compose.prod.yml pull. Both prod composes have no build: on purpose: a failed pull fails the deploy instead of silently rebuilding whatever sits on the host.'
 }
@@ -114,20 +166,32 @@ views {
   dynamic view requestFlow {
     title 'A user request, step by step'
     user -> lstack.proxy 'Step 1: the browser opens the site over HTTPS'
-    lstack.proxy -> lstack.web 'Step 2: the proxy routes to the SSR container, Nitro renders the page'
+    lstack.proxy -> lstack.web 'Step 2: the proxy passes the request to the NEXT frontend copy in turn, choosing only among the copies whose /health.txt still answers; that copy renders the page — any of them can, they hold no state'
     user -> logto 'Step 3: sign-in — the browser goes to Logto (OIDC PKCE) and returns with tokens'
-    user -> lstack.api 'Step 4: the browser sends POST /graphql with a Bearer JWT; subscriptions take the same path over WebSocket'
-    lstack.api -> logto 'Step 5: the backend verifies the token signature against the public keys (JWKS)'
-    lstack.api -> lstack.db 'Step 6: runs SQL through sqlc'
-    lstack.api -> lstack.cache 'Step 7: long operations go into Asynq background jobs'
+    user -> lstack.proxy 'Step 4: the browser sends POST /graphql with a Bearer JWT; subscriptions take the same path over WebSocket'
+    lstack.proxy -> lstack.api 'Step 5: the proxy hands it to the next backend copy that answers /readyz — that probe pings Postgres and Redis, so a copy which lost a dependency is skipped instead of being restarted'
+    lstack.api -> logto 'Step 6: that copy verifies the token signature against the public keys (JWKS)'
+    lstack.api -> lstack.db 'Step 7: runs SQL through sqlc against the shared database — which is why it does not matter which copy answered'
+    lstack.api -> lstack.cache 'Step 8: long operations become Asynq jobs, and subscription events are published to Redis so a socket held by another copy still receives them'
+  }
+
+  dynamic view fileFlow {
+    title 'How an uploaded file reaches the user, step by step'
+    user -> lstack.proxy 'Step 1: the browser sends the file — POST /upload as multipart, with a Bearer JWT'
+    lstack.proxy -> lstack.api 'Step 2: the proxy hands it to one copy — say copy A. Which one is not important, and nobody remembers the choice'
+    lstack.api -> lstack.files 'Step 3: copy A checks the type and size, builds a safe object key (date + random UUID + filtered extension) and PUTs the bytes into the shared storage. Nothing is written to the container disk'
+    lstack.api -> lstack.db 'Step 4: it stores the file metadata plus the ABSOLUTE public link (S3_PUBLIC_BASE_URL + key) — a plain string in the database'
+    lstack.api -> user 'Step 5: the same link comes back in the response, so the page can show the file immediately'
+    user -> lstack.files 'Step 6: THE IMPORTANT PART — the browser follows that link into the storage itself. No application copy touches the download: the bucket is public for reading, the link never expires, and asking any copy for the file would be pointless because none of them has it'
   }
 
   dynamic view deployFlow {
     title 'Deploy via the registry, step by step'
     engineer -> buildsrv 'Step 1: starts the image build (task docker:build / npm run docker:build)'
-    buildsrv -> registry 'Step 2: pushes images tagged per environment (prod-/staging-), after docker login for a private registry'
-    engineer -> runsrv 'Step 3: sets IMAGE_REGISTRY and IMAGE_TAG on the target host, calls docker compose pull for both sides'
-    runsrv -> registry 'Step 4: pulls the images; if the digest did not change, up -d is a no-op — verify with docker compose images'
-    engineer -> runsrv 'Step 5: up -d brings the containers up; the backend runs goose migrations itself at startup (forward-only)'
+    buildsrv -> registry 'Step 2: pushes the images, after docker login for a private registry'
+    engineer -> stand 'Step 3: optional but cheap — brings the local stand up and runs scripts/scale-check.sh; a red check here is a bug that would only show up with N copies in production'
+    engineer -> runsrv 'Step 4: sets IMAGE_REGISTRY and IMAGE_TAG on the target host, calls docker compose pull for both sides'
+    runsrv -> registry 'Step 5: pulls the images; if the digest did not change, up -d is a no-op — verify with docker compose images'
+    engineer -> runsrv 'Step 6: `up -d --scale app=N` brings up N copies of each side; the first backend copy to get the advisory lock runs goose migrations (forward-only) while the others wait'
   }
 }
