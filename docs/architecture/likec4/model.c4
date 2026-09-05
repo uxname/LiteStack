@@ -53,7 +53,7 @@ model {
 
     web = container 'Frontend «litefront»' {
       description 'Renders pages server-side (SSR) and serves static assets to the browser. Runs in several identical copies and keeps no state of its own, so any copy can render any page. ONE built image runs in EVERY environment: the public VITE_* values are read from the container environment when the server boots and handed to the browser inside the HTML (a window global), so moving the same image to another environment is a restart with different variables, never a rebuild. A missing required variable kills the process at boot and names it in the log — before the port is bound, so a half-configured copy never reports healthy. Healthcheck: wget on the static /health.txt, which costs no page render per probe. The container always listens on 3000 and publishes no host port (a fixed host port is exactly what stops a second copy from starting).'
-      technology 'Vite · React 19 · TanStack Start · Nitro (Node 22)'
+      technology 'Vite · React 19 · TanStack Start · Nitro (Node 24)'
       style {
         multiple true
       }

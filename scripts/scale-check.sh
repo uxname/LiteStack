@@ -309,9 +309,12 @@ else
 fi
 
 # A browser hydrating a page from one copy against the bundle of another is the
-# multi-copy way to break hydration, and it is the part curl can see: same asset
-# hashes means the same build, and the same rendered locale means no en/ru
-# mismatch. Client-side hydration itself is the frontend e2e suite's job.
+# multi-copy way to break hydration, and it is the part curl can see. Be honest
+# about what this half proves: on THIS stand both copies run one image, so the
+# asset lists cannot differ by build — what it would catch is a per-process or
+# per-request asset nonce, i.e. a real pinning to a copy. The discriminating
+# half of this scenario is the locale cookie above. Client-side hydration itself
+# is the frontend e2e suite's job.
 # `|| true` on both: a page with no assets at all is the loudest possible answer
 # here, and it must reach the check below rather than end the run through
 # grep's exit 1.

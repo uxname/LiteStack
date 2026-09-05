@@ -266,6 +266,15 @@ Both mistakes are silent — nothing logs, nothing 500s:
 Count the proxies between the internet and the container and set the number to
 that.
 
+#### Give the readiness probe more than 5 seconds
+
+`/readyz` pings Postgres and Redis under a 5-second budget of its own
+(`config.HealthCheckTimeout`). A proxy whose probe timeout is shorter cuts the
+answer off mid-flight, so live dependencies are reported unavailable: the copy
+leaves rotation and the log gets a warning for each dependency that never
+actually failed. Set the proxy's health timeout above 5s — `scale/Caddyfile`
+uses 6s for exactly this reason.
+
 #### Known limit: `X-Real-IP` is believed without counting
 
 When a request arrives with **no** `X-Forwarded-For` at all, the app falls back
