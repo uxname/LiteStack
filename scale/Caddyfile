@@ -76,9 +76,8 @@
 
 	# The backend's public surface, matched EXACTLY (the dev pages are reachable
 	# per copy below). Exact paths, not prefixes: these are the whole route list
-	# the app mounts, and a prefix here is what stole /uploads/*. /health is
-	# likewise exact, so the frontend's /health.txt is not caught by it.
-	@api path /graphql /upload /livez /readyz /health
+	# the app mounts, and a prefix here is what stole /uploads/*.
+	@api path /graphql /upload /livez /readyz
 	handle @api {
 		reverse_proxy backend-a:4000 backend-b:4000 {
 			lb_policy round_robin

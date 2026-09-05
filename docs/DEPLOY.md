@@ -100,10 +100,9 @@ interchangeable. Point each consumer at the right one.
 |---|---|---|---|
 | `GET /livez` (backend) | "Is this process running?" | nothing external | The **orchestrator's restart probe**. Already the image's `HEALTHCHECK` (`server -healthcheck`) — do not override it. |
 | `GET /readyz` (backend) | "Can this copy serve traffic right now?" | Postgres and Redis — **only** those decide the answer; 503 when one is unusable. The heap reading rides along in the body as diagnostics and never changes the verdict. | The **reverse proxy's** traffic gate, so a copy with a broken dependency is skipped instead of being restarted. |
-| `GET /health` (backend) | same as `/readyz` | same as `/readyz` | An alias, kept so existing monitoring keeps working. New configuration should name `/readyz`. |
 | `GET /health.txt` (frontend) | "Is the SSR server up?" | nothing | Both the image `HEALTHCHECK` and the proxy. It is a static file, so probing it costs no page render. |
 
-The split matters the moment there is more than one copy: every orchestrator
+The difference matters the moment there is more than one copy: every orchestrator
 answers a failed **liveness** probe by killing the container. If liveness pinged
 the database, one database blip would restart the entire fleet at once, instead
 of briefly draining traffic away from it.

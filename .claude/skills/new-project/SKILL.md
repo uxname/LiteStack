@@ -96,7 +96,7 @@ first.
 
 ```bash
 ( cd backend && task start:dev & )          # brings up Docker db+redis, runs goose migrations, serves
-# wait for it, then verify GraphQL actually answers (not just /health):
+# wait for it, then verify GraphQL actually answers (not just /readyz):
 curl -s -X POST localhost:4000/graphql -H 'content-type: application/json' \
      -d '{"query":"{ __typename }"}'      # expect {"data":{"__typename":"Query"}}
 scripts/doctor.sh --reachable               # confirms the endpoint before codegen
