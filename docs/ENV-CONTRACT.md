@@ -8,6 +8,12 @@ variable in the log). Both prod compose files fail even earlier — at
 `docker compose config` time, naming the missing variable — so a half-configured host never
 reaches a container. No `.env` is required for that; exported environment variables work.
 `scripts/doctor.sh` checks these pairs automatically — run it after editing any `.env`.
+It also hard-checks `S3_PUBLIC_BASE_URL` on its own, because nothing else can: the app
+only concatenates that prefix with an object key, so a wrong one yields a link that is
+valid-looking and dead, and it is already stored in `profiles.avatar_url` by the time
+anyone sees a broken image. The check requires an absolute `http(s)` URL, ending in the
+bucket name, on a host a browser can actually resolve — a single-label host like
+`garage` is a container-network name, right for `S3_ENDPOINT` and dead in a link.
 
 Source of truth: `backend/.env` and `frontend/.env`. A missing `.env` makes
 `scripts/doctor.sh` fall back to that side's `.env.example` for the diagnostics, but the
