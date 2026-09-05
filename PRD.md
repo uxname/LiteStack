@@ -1,6 +1,6 @@
 ---
 prd_workflow: standard # blitz | standard
-product_class: 'шаблон-стартер для разработки продуктов (boilerplate)' # класс продукта, см. «Разведка класса продукта»
+product_class: 'starter template for building products (boilerplate)' # product class, see "Product class recon"
 blitz_round: 3
 blitz_rounds_total: 10
 standard_round: 5
@@ -9,342 +9,337 @@ standard_rounds_total: 7
 
 # LiteStack
 
-## Проблема и цель
+## Problem and goal
 
-LiteStack — уже существующий и активно используемый полностековый шаблон
-(backend liteend-go + frontend litefront, координация сверху).
+LiteStack is an existing, actively used full-stack template (backend
+liteend-go + frontend litefront, with a coordination layer on top).
 
-Цели по убыванию веса:
+Goals, heaviest first:
 
-1. **Быстрый старт нового продукта**: auth, CI, деплой, доки уже собраны.
-2. Единый стандарт всех проектов: один стек, лёгкое переключение.
-3. Сохранение накопленных лучших практик между проектами.
-4. Витрина — пассивная: репозитории публичны и читаемы сами по себе,
-   специальной работы по показу нет.
+1. **Fast start for a new product**: auth, CI, deploy and docs already assembled.
+2. One standard across all projects: a single stack, easy switching.
+3. Carrying accumulated best practices from project to project.
+4. Showcase — passive: the repositories are public and readable on their own,
+   no dedicated presentation work.
 
-Первая — главная, остальные — её следствия.
+The first is the main one; the rest follow from it.
 
-Свежий аудит нашёл дыры там, где автор смотрит реже всего — тесты
-реальной аутентификации, вырезание секретов из логов, вес первого экрана.
-Это **итерация 1 — гигиена**. Разбор готовности к росту показал две стены:
-состояние внутри процесса (файлы на диске, подписки в памяти) — это
-**итерация 2 — масштабируемость**: ядро без стен. Разбор безопасности и
-стандартов нашёл открытую дверь (файлы без входа) и отсутствующие правила
-— это **итерация 3 — безопасность и стандарты**. Разбор витрины добавил
-в гигиену попутный порядок публичных репозиториев. Все три итерации —
-гигиенические: их эффект — сниженные риски, а не новые ощущения на старте.
+A recent audit found holes exactly where the author looks least often — tests
+of real authentication, stripping secrets out of logs, the weight of the first
+screen. That is **iteration 1 — hygiene**. A review of growth readiness showed
+two walls: state held inside the process (files on disk, subscriptions in
+memory) — that is **iteration 2 — scalability**: a core with no walls. A review
+of security and standards found an open door (files with no gate) and missing
+rules — that is **iteration 3 — security and standards**. The showcase review
+added incidental tidying of the public repositories to the hygiene work. All
+three iterations are hygienic: their effect is reduced risk, not a new feeling
+at start-up.
 
-## Пользователи и сценарии
+## Users and scenarios
 
-- Автор проекта (ты) — использует активно, сам поддерживает и обновляет;
-  проводит все три итерации.
-- Посетитель продукта, выведенного из шаблона — открывает первый экран;
-  качество его опыта зависит от того, что шаблон кладёт в бандл
-  (собранный комплект кода страницы).
-- Оператор производного продукта — следит за сервером; корректность
-  фоновых процессов, отсутствие стен в ядре и закрытые двери определяют,
-  переживёт ли продукт рост и проверку глазами клиента.
+- The project author (you) — an active user who maintains and updates it, and
+  runs all three iterations.
+- A visitor to a product derived from the template — opens the first screen; the
+  quality of that experience depends on what the template puts into the bundle
+  (the assembled set of page code).
+- An operator of a derived product — looks after the server; correct background
+  processing, a core with no walls and closed doors decide whether the product
+  survives growth and a customer's inspection.
 
-## Что входит
+## In scope
 
-**Итерация 1 — гигиена:**
+**Iteration 1 — hygiene:**
 
-1. Тесты на вырезание секретов из логов (`redactSensitive`) и «пол
-   покрытия» пакета logger — минимальная доля проверенного кода (60%),
-   ниже которой проверка backend падает.
-2. Настоящие тесты проверки JWT (подписанного токена входа) на backend:
-   истёкший токен, чужой издатель (issuer), чужая аудитория (audience)
-   отклоняются; тесты идут без подставной аутентификации, ключи —
-   локальный набор тестовых ключей (JWKS); допускается перекос часов
-   серверов до ±60 секунд.
-3. Ленивая загрузка Sentry Session Replay (запись сеанса для отладки):
-   её код не входит в первичный бандл; когда сессия попадает в выборку
-   записи, запись начинается сразу, без перезагрузки страницы. Если
-   подгрузка не удалась (Sentry недоступен), страница работает как раньше.
-   Одноразовая консольная команда анализа состава бандла идёт в
-   документацию.
-4. Строка в документации шаблона о приватности записи сеансов: ввод
-   посетителей маскируется (дефолт Sentry не отключаем), срок хранения и
-   доступ к записям определяет оператор производного продукта своим
-   планом Sentry.
-5. Попутный порядок публичных репозиториев: проверка секретов (gitleaks)
-   во всех трёх репозиториях — в backend её хук отсутствует; плейсхолдеры
-   года и имени в LICENSE фронтенда заполнены; DERIVE.md фиксирует, что
-   новый продукт создаётся приватным.
+1. Tests for stripping secrets out of logs (`redactSensitive`) and a "coverage
+   floor" for the logger package — the minimum share of covered code (60%) below
+   which the backend gate fails.
+2. Real tests of JWT verification (the signed sign-in token) on the backend:
+   an expired token, a foreign issuer and a foreign audience are rejected; the
+   tests run without mock authentication, and the keys come from a local set of
+   test keys (JWKS); clock skew between servers is tolerated up to ±60 seconds.
+3. Lazy loading of Sentry Session Replay (session recording for debugging): its
+   code stays out of the initial bundle; when a session is sampled for recording,
+   recording starts immediately, with no page reload. If the load fails (Sentry
+   unreachable), the page works exactly as before. The one-off console command
+   for analysing bundle composition goes into the documentation.
+4. A line in the template documentation about session-recording privacy: visitor
+   input is masked (Sentry's default is not turned off), while retention and
+   access to the recordings are decided by the derived product's operator through
+   their own Sentry plan.
+5. Incidental tidying of the public repositories: a secret scan (gitleaks) in all
+   three repositories — the backend has no such hook; the year and name
+   placeholders in the frontend LICENSE filled in; DERIVE.md stating that a new
+   product is created private.
 
-**Итерация 2 — масштабируемость («ядро без стен»):**
+**Iteration 2 — scalability ("a core with no walls"):**
 
-6. Хранение файлов загрузок — S3-совместимое хранилище одним путём:
-   Garage (лёгкое S3-хранилище) в локальном Docker-стеке разработки,
-   любой S3-совместимый сервис в продакшене. Отдача файлов остаётся
-   через API — хранилище не публично. Фронтовый образец загрузки и
-   скачивания переходит на подписанные ссылки тем же заходом — шаблон
-   остаётся рабочим целиком.
-7. Подписки GraphQL-событий — через общий Redis (pub/sub — публикация-
-   подписка) вместо внутрипроцессных каналов. Семантика — уведомления:
-   подписчик, отключённый в момент события, получит свежие данные при
-   перезапросе.
-8. Правило пагинации в документации backend: любой список в схеме —
-   только курсорная пагинация (стабильные страницы при вставках),
-   с мини-примером запроса. Без демо-списка в схеме.
-9. Проверка готовности: реальный прогон двух инстансов API против общих
-   Postgres, Redis и Garage. Тем же заходом обновляются ENV-контракт и
-   doctor.sh под новые переменные, а в DEPLOY.md появляется раздел
-   «следующие пределы» (один хост БД, один Redis, вертикальный рост).
-   Фронтовый SSR (серверный рендеринг страниц) в прогон не входит: он
-   без состояния по документации деплоя — проверять там нечего.
+6. Upload storage — S3-compatible storage on a single path: Garage (a lightweight
+   S3 store) in the local Docker development stack, any S3-compatible service in
+   production. Serving files stays behind the API — the storage is not public.
+   The frontend upload-and-download sample moves to signed links in the same
+   pass, so the template stays working end to end.
+7. GraphQL event subscriptions — over a shared Redis (pub/sub — publish-subscribe)
+   instead of in-process channels. The semantics are notifications: a subscriber
+   that was disconnected at the moment of the event gets fresh data on refetch.
+8. A pagination rule in the backend documentation: every list in the schema uses
+   cursor pagination only (stable pages under inserts), with a short query
+   example. No demo list in the schema.
+9. A readiness run: two API instances actually running against a shared Postgres,
+   Redis and Garage. The same pass updates the env contract and doctor.sh for the
+   new variables, and DEPLOY.md gains a "next limits" section (one database host,
+   one Redis, vertical growth). The frontend SSR (server-side page rendering) is
+   not part of the run: it is stateless per the deploy documentation — there is
+   nothing to check there.
 
-**Итерация 3 — безопасность и стандарты:**
+**Iteration 3 — security and standards:**
 
-10. Режим видимости файлов — переменная окружения. По умолчанию
-   **приватный**: скачивание только по короткоживущим подписанным
-   ссылкам, которые выдаёт API; запрос без входа получает отказ; время
-   жизни ссылки задаётся соседней переменной (минуты). **Публичный**
-   режим — осознанное решение оператора производного продукта для галерей и лендингов:
-   выдача без входа. Файлы внутри продукта общие за входом. Обе
-   переменные (режим и время жизни ссылки) попадают в ENV-контракт и
-   проверку doctor.sh тем же заходом.
-11. Автотест двери: в приватном режиме запрос файла без аутентификации
-    получает отказ — открытая дверь не вернётся молча ни при одном
-    будущем рефакторинге.
-12. Чеклист безопасности перед выводом продукта в продакшен, встроенный
-    прямо в шаги деплоя DEPLOY.md: вход, файлы, секреты, бэкап бакета
-    (контейнера объектного хранилища), лимиты, окружение.
+10. File visibility mode — an environment variable. The default is **private**:
+   downloads only through short-lived signed links issued by the API; a request
+   without sign-in is refused; link lifetime is set by a neighbouring variable
+   (in minutes). **Public** mode is a deliberate choice by the derived product's
+   operator for galleries and landing pages: served without sign-in. Files inside
+   the product are shared behind the gate. Both variables (mode and link
+   lifetime) go into the env contract and the doctor.sh check in the same pass.
+11. An automated test of the door: in private mode a file request without
+    authentication is refused — an open door will not come back silently under
+    any future refactor.
+12. A security checklist to run before taking a product to production, embedded
+    directly in the deploy steps of DEPLOY.md: sign-in, files, secrets, bucket
+    backup (the object-storage container), limits, environment.
 
-## Потом
+## Later
 
-- Сквозной тест (E2E) входа через настоящий поставщик входа (IdP) на
-  frontend — тяжелее без CI.
-- Автоматическая проверка полного цикла первого запуска из чистого
-  клона — станет нужной при частых стартах или других пользователях.
+- An end-to-end (E2E) sign-in test through a real identity provider (IdP) on the
+  frontend — heavier without CI.
+- An automated check of the full first-run cycle from a clean clone — it becomes
+  worth having with frequent starts or with other users.
 
-## Что НЕ входит
+## Out of scope
 
-- Активная витрина: демо-развёртывания, маркетинг, показательные
-  материалы. Репозитории публичны и читаемы сами по себе — этого
-  достаточно.
-- Подтягивание обновлений исходных шаблонов в уже выведенные продукты:
-  производный проект — разовый снимок шаблонов и живёт своей жизнью
-  (решение закреплено в OPERATING-MODE.md).
-- Перенос улучшений этих итераций в уже выведенные продукты: они
-  остаются со старым кодом, осознанно.
-- Починка целостности самих проверок (автоисправление lint вместо
-  падения, типовая проверка конфигов Vite, минимальные пороги покрытия
-  пакетов middleware и server): текущее состояние принято окончательно.
-- Из отказоустойчивости: шардинг базы данных, несколько регионов,
-  Kubernetes, CDN, собственная инфраструктура нагрузочных тестов.
-  Готовность к росту — не то же самое, что выживание при падении
-  инфраструктуры.
-- Организации и команды в схеме данных: одиночный пользователь по
-  дизайну; каркас «на вырост» не строится.
-- Привязка подписанных ссылок к пользователю или IP: короткий срок жизни
-  плюс непубличное хранилище закрывают массовый сбор файлов.
+- An active showcase: demo deployments, marketing, presentation material. The
+  repositories are public and readable on their own — that is enough.
+- Pulling upstream template updates into products already derived: a derived
+  project is a one-time snapshot of the templates and lives its own life (the
+  decision is recorded in OPERATING-MODE.md).
+- Back-porting the improvements of these iterations into products already
+  derived: they knowingly stay on the older code.
+- Fixing the integrity of the checks themselves (lint auto-fixing instead of
+  failing, type checking of the Vite configs, coverage floors for the middleware
+  and server packages): the current state is accepted as final.
+- From fault tolerance: database sharding, multiple regions, Kubernetes, a CDN,
+  an in-house load-testing setup. Readiness for growth is not the same thing as
+  surviving an infrastructure outage.
+- Organisations and teams in the data model: a single user by design; no
+  "for later" scaffolding is built.
+- Binding signed links to a user or an IP: a short lifetime plus non-public
+  storage already closes bulk harvesting of files.
 
-## Ключевые истории
+## Key stories
 
-1. Как автор проекта я хочу, чтобы проверка ловила сломанное вырезание
-   секретов из логов, чтобы чужие пароли не утекали в текстовые логи
-   незаметно.
-2. Как автор проекта я хочу настоящие тесты проверки JWT, чтобы дыра в
-   проверке издателя или срока не уехала во все будущие продукты.
-3. Как посетитель производного продукта я хочу быстрый первый экран, чтобы
-   не скачивать ~122 КБ служебного кода записи сеанса, который нужен
-   одному сеансу из десяти.
-4. Как посетитель производного продукта я хочу, чтобы мой ввод не попал в
-   запись сеанса в открытом виде, чтобы то, что я печатаю, осталось
-   приватным.
-5. Как автор проекта я хочу, чтобы второй инстанс API поднимался без
-   правок кода, чтобы рост нагрузки не означал переписывание ядра.
-6. Как оператор производного продукта я хочу, чтобы подписки работали
-   при любом числе инстансов, чтобы события доходили до посетителей
-   независимо от того, куда их подключило.
-7. Как автор проекта я хочу одно правило для списков, чтобы все
-   производные делали пагинацию одинаково и без изобретения своего.
-8. Как оператор производного продукта я хочу включить публичный режим
-   файлов одним решением в настройках, чтобы запуск простого продукта
-   вроде лендинга не требовал полного механизма входа.
-9. Как автор проекта я хочу автотест закрытой двери, чтобы безопасный
-   дефолт не открылся обратно молча.
-10. Как оператор производного продукта я хочу чеклист прямо в шагах
-    деплоя, чтобы вывести продукт в прод, не забыв ни одной двери.
-11. Как автор проекта я хочу, чтобы публичные репозитории не содержали
-    пробелов безопасности и небрежностей, чтобы случайный читатель видел
-    порядок.
-12. Как посетитель производного продукта я хочу получать файлы по
-    ссылкам от продукта, чтобы скачивание работало при любом числе
-    серверов.
+1. As the project author I want the gate to catch broken secret-stripping in the
+   logs, so that other people's passwords do not leak into plain-text logs
+   unnoticed.
+2. As the project author I want real JWT verification tests, so that a hole in
+   the issuer or expiry check does not ride into every future product.
+3. As a visitor to a derived product I want a fast first screen, so that I do not
+   download ~122 KB of session-recording plumbing that one session in ten needs.
+4. As a visitor to a derived product I want my input kept out of the session
+   recording in the clear, so that what I type stays private.
+5. As the project author I want a second API instance to come up with no code
+   changes, so that growing load does not mean rewriting the core.
+6. As an operator of a derived product I want subscriptions to work with any
+   number of instances, so that events reach visitors regardless of which
+   instance they landed on.
+7. As the project author I want one rule for lists, so that every derived product
+   paginates the same way instead of inventing its own.
+8. As an operator of a derived product I want to switch files to public mode with
+   one setting, so that launching a simple product such as a landing page does
+   not require the full sign-in machinery.
+9. As the project author I want an automated test of the closed door, so that a
+   safe default cannot silently open again.
+10. As an operator of a derived product I want the checklist right inside the
+    deploy steps, so that I can ship to production without forgetting a door.
+11. As the project author I want the public repositories to carry no security
+    gaps and no sloppiness, so that a casual reader sees a tidy project.
+12. As a visitor to a derived product I want to get files through links the
+    product gives me, so that downloading works with any number of servers.
 
-## Критерии приёмки
+## Acceptance criteria
 
-1. Намеренно ломаем `redactSensitive` → проверка backend падает; пол
-   покрытия logger 60% введён и действует.
-2. Тест подаёт истёкший токен, токен чужого issuer и чужой audience → все
-   три отклонены; токен, истёкший в пределах допуска ±60 секунд,
-   принимается, сверх допуска — отклоняется; тесты запускаются без
-   подставной аутентификации.
-3. Анализ состава собранного бандла: кода replay нет в точке входа;
-   сессия из выборки записи начинает записываться сразу; при закрытой
-   сети до Sentry первый экран работает как раньше. Консольная команда
-   анализа записана в документации.
-4. В документации шаблона есть правило приватности: ввод посетителей
-   маскируется, срок хранения записей и доступ к ним определяет оператор
-   производного продукта планом Sentry.
-5. Ручная проверка на свежем клоне: setup.sh и doctor.sh завершаются
-   успехом — конфигурация `.env` читается настоящая, а не пример.
-6. Прогон готовности: два инстанса API работают против общих
-   Postgres, Redis и Garage — файл, загруженный через один инстанс,
-   скачивается через другой; подписка, подключённая к одному инстансу,
-   получает событие, опубликованное на другом. Загрузка и скачивание
-   через фронтовый образец работают по подписанным ссылкам против двух
-   инстансов.
-7. В документации backend есть правило курсорной пагинации с примером;
-   ENV-CONTRACT содержит переменные хранилища, doctor.sh их проверяет;
-   в DEPLOY.md есть раздел «следующие пределы».
-8. Переключение режима видимости: в приватном режиме (по умолчанию)
-   запрос файла без входа получает отказ, подписанная ссылка работает
-   и истекает согласно своей переменной; в публичном режиме тот же файл
-   открывается без входа. Обе переменные присутствуют в ENV-CONTRACT
-   и проверяются doctor.sh.
-9. Автотест двери зелёный: неаутентифицированный запрос к файлу в
-   приватном режиме получает отказ.
-10. Шаги деплоя в DEPLOY.md содержат встроенный чеклист безопасности:
-    вход, файлы, секреты, бэкап бакета, лимиты, окружение.
-11. gitleaks стоит в хуках всех трёх репозиториев; в LICENSE фронтенда
-    нет плейсхолдеров; в DERIVE.md есть правило приватного дефолта
-    производных продуктов.
+1. Deliberately break `redactSensitive` → the backend gate fails; the 60% logger
+   coverage floor is in place and enforced.
+2. A test feeds an expired token, a token from a foreign issuer and one with a
+   foreign audience → all three are rejected; a token expired within the ±60
+   second tolerance is accepted, beyond it rejected; the tests run without mock
+   authentication.
+3. Analysis of the built bundle: no replay code in the entry point; a sampled
+   session starts recording immediately; with the network to Sentry blocked, the
+   first screen works as before. The analysis console command is written down in
+   the documentation.
+4. The template documentation states the privacy rule: visitor input is masked,
+   and retention of and access to recordings are decided by the derived product's
+   operator through their Sentry plan.
+5. A manual check on a fresh clone: setup.sh and doctor.sh both succeed — the
+   `.env` configuration being read is the real one, not the example.
+6. Readiness run: two API instances work against a shared Postgres, Redis and
+   Garage — a file uploaded through one instance downloads through the other; a
+   subscription attached to one instance receives an event published on the
+   other. Upload and download through the frontend sample work over signed links
+   against both instances.
+7. The backend documentation carries the cursor-pagination rule with an example;
+   ENV-CONTRACT lists the storage variables and doctor.sh checks them; DEPLOY.md
+   has the "next limits" section.
+8. Switching the visibility mode: in private mode (the default) a file request
+   without sign-in is refused, a signed link works and expires according to its
+   variable; in public mode the same file opens without sign-in. Both variables
+   are present in ENV-CONTRACT and checked by doctor.sh.
+9. The door test is green: an unauthenticated request for a file in private mode
+   is refused.
+10. The deploy steps in DEPLOY.md contain the embedded security checklist:
+    sign-in, files, secrets, bucket backup, limits, environment.
+11. gitleaks is wired into the hooks of all three repositories; the frontend
+    LICENSE has no placeholders; DERIVE.md carries the private-by-default rule
+    for derived products.
 
-## Данные
+## Data
 
-Шаблон сам продуктовых данных не хранит. Его артефакты: конфигурация в
-`.env` (контракт — docs/ENV-CONTRACT.md; проявляется в приёмке — ручная
-проверка запуском setup.sh и doctor.sh), логи приложения, файлы загрузок
-(после итерации 2 — в S3-совместимом хранилище, видимость — по режиму из
-итерации 3), записи сеансов у Sentry — третьей стороне; их правило в
-«Что входит»: ввод маскируется, хранение и доступ — решение производного
-продукта. Итерации новых видов данных не добавляют — меняется место
-хранения файлов и правила доступа к ним.
+The template itself stores no product data. Its artefacts are: the configuration
+in `.env` (contract — docs/ENV-CONTRACT.md; it shows up in acceptance as the
+manual run of setup.sh and doctor.sh), application logs, uploaded files (after
+iteration 2 — in S3-compatible storage, with visibility per the mode from
+iteration 3), and session recordings held by Sentry, a third party; their rule is
+in "In scope": input is masked, retention and access are the derived product's
+decision. The iterations add no new kinds of data — what changes is where files
+live and the rules for reaching them.
 
-## Метрики успеха
+## Success metrics
 
-Осознанно без метрик (решение и причина — в «Решениях»).
+Deliberately none (the decision and its reason are in "Decisions").
 
-## Ограничения и риски
+## Constraints and risks
 
-- В проекте принципиально нет CI — решения не должны требовать его
-  появления.
-- Работа идёт в трёх репозиториях сразу (мета-репо + два сабмодуля);
-  изменения нужно проводить согласованно.
-- Возврат replay в первичный бандл при будущем обновлении Sentry не
-  защищён автоматически — ловит следующий аудит.
-- Утёкшая подписанная ссылка работает до конца срока жизни: риск принят,
-  срок — минуты.
+- The project has no CI on principle — no solution may require introducing one.
+- Work spans three repositories at once (the meta-repo plus two submodules);
+  changes have to be made in step.
+- Replay drifting back into the initial bundle on a future Sentry update is not
+  guarded automatically — the next audit catches it.
+- A leaked signed link works until its lifetime expires: the risk is accepted,
+  the lifetime is minutes.
 
-## Решения и отклонённое
+## Decisions and what was rejected
 
-- PRD на русском, а не английском: скорость мышления автора важнее
-  единообразия репо для этого одного файла.
-- Свежесть зависимостей — вручную, силами автора: старты редки,
-  автоматика (боты, календарь) не окупается.
-- Автоматическая проверка первым же запуском отложена: ручная — по
-  надобности.
-- Дрейф доков ловим периодическим аудитом, а не автопроверкой команд и
-  ссылок из доков.
-- Из двух тестовых тем выбрана реальная аутентификация, а не целостность
-  самих проверок: закрывает более дорогой риск.
-- Главная цель — быстрый старт; единый стандарт, практики и витрина —
-  следствия.
-- Итерации делаются без боли: риски из аудита реальны, даже если сейчас
-  ничего не ощущается.
-- Метрики не вводим: размеру итераций хватает критериев приёмки.
-- Граница тестов входа — только модуль проверки токена на backend;
-  учебная заглушка входа (OIDC, протокол входа) на фронте остаётся
-  режимом разработки.
-- Приватность записи сеансов фиксируем строкой в доках, а не проверкой
-  настроек: дефолтное маскирование Sentry достаточно.
-- Проверка «replay вне бандла» — одноразовое доказательство + команда в
-  документации; постоянную автоматическую проверку не заводим, регрессию
-  ловит аудит.
-- Готовность к масштабируемости определена как «ядро без стен»: любое
-  состояние вне процесса, второй инстанс — без правок кода.
-- Хранилище файлов — S3-совместимое одним путём (Garage в dev, любой S3
-  в проде), а не два режима «диск или S3»: один код-путь дешевле ветвлений.
-- Отдача файлов — через API, а не напрямую из хранилища: проще,
-  хранилище не публикуется в интернет. Подписанная ссылка указывает на
-  эндпоинт API, а не в бакет: хранилище закрыто наглухо.
-- Подписки — Redis pub/sub (публикация-подписка) с семантикой
-  уведомлений; гарантия доставки не строится: «нельзя потерять событие —
-  это задача очереди задач Asynq, а не подписки» (правило идёт в
-  документацию).
-- Пагинация — правилом в документации, а не демо-списком в схеме: ноль
-  образцового кода.
-- Миграция уже лежащих локальных файлов не делается: данных продакшена
-  нет, старт чистый.
-- ENV-контракт и doctor.sh обновляются тем же заходом с любыми новыми
-  переменными окружения (хранилище, режим видимости файлов, срок жизни
-  ссылки): иначе настройки молча потеряются на чужом хосте.
-- Postgres и Redis остаются одиночками: готовность к горизонтальному
-  росту не равна выживанию при падении инфраструктуры.
-- Upload-фича остаётся в шаблоне: это рабочий образец для производных.
-- Пункт гигиены «утечка при таймауте записи файла» снят: ручная запись
-  файла исчезнет при переходе на S3 — проверить при внедрении; если
-  итерация 2 не состоится, вернуть пункт.
-- Доступ к файлам: приватный режим по умолчанию через подписанные ссылки;
-  после оспаривания добавлен публичный режим одной переменной — быстрый
-  старт лёгких продуктов важнее непробиваемого дефолта, а выключение
-  безопасности остаётся сознательным действием в настройках.
-- Старый публичный путь выдачи файлов удаляется: доступ — только по
-  подписанным ссылкам (приватный) или через режим публичности.
-- Интроспекция GraphQL и интерактивные инструменты остаются открытыми
-  в проде: схема не содержит секретов, открытость упрощает интеграцию —
-  решение автора проекта после рекомендации закрыть.
-- Одиночный пользователь по дизайну: каркас организаций не строится;
-  путь добавления команд живёт только здесь, в PRD, доки не трогаем.
-- Карта «путей отхода» от жёстких решений шаблона не рассматривается.
-- Витрина переписана в пассивную: зритель не определён, показа нет;
-  публичность и читаемость — принцип, а не работа. README обновляются
-  попутно с итерациями, дрейф ловит аудит доков.
-- Язык публичных репозиториев — English-only: единообразие для
-  инструментов и случайных читателей.
-- Схемы LikeC4 живые: обновляются тем же заходом при архитектурных
-  изменениях; цена приемлема.
-- Производные продукты создаются приватными по умолчанию (строка в
-  DERIVE.md); публикация — сознательное действие.
-- Дисциплина истории коммитов не требуется: качество обеспечивают гейты.
-- Критерий попутного порядка принят вместе с итерацией 1, несмотря на позицию в конце
-  списка критериев: список критериев не группируется по итерациям.
-- Чеклист прода встраивается в шаги деплоя, а не отдельным документом:
-  проходится по пути, иначе его никто не откроет.
-- Порядок работ: итерации 1 → 2 → 3; приёмка каждой — по своим
-  критериям, включая ручную проверку setup.sh/doctor.sh на свежем клоне.
-- Ручная проверка свежего клона (setup.sh и doctor.sh) — не новая функция, а
-  процедура приёмки уже существующего контракта `.env` (см. «Данные»),
-  поэтому живёт вне «Что входит».
-- Прогон готовности двух инстансов API — наоборот, часть объёма итерации 2: он
-  доказывает новый контракт хранилищ и подписок, а не существующее.
+- The PRD is written in English, like everything else in the repositories: the
+  English-only rule (root AGENTS.md, rule 3) covers docs, and a single file in
+  another language is exactly the kind of exception nobody remembers. This
+  reverses the earlier decision to keep it in Russian for the author's thinking
+  speed (reversed 2026-09-05).
+- Dependency freshness stays manual, done by the author: starts are rare, and
+  automation (bots, a calendar) does not pay for itself.
+- An automated first-run check is deferred: the manual one is run when needed.
+- Documentation drift is caught by a periodic audit, not by automatically
+  checking the commands and links inside the docs.
+- Of the two testing themes, real authentication was chosen over the integrity of
+  the checks themselves: it closes the more expensive risk.
+- The main goal is a fast start; one standard, best practices and the showcase
+  follow from it.
+- The iterations are done without pain being felt: the risks from the audit are
+  real even though nothing hurts right now.
+- No metrics are introduced: for iterations this size the acceptance criteria are
+  enough.
+- The boundary of the sign-in tests is the token-verification module on the
+  backend only; the teaching stub for sign-in (OIDC, the sign-in protocol) on the
+  frontend stays a development mode.
+- Session-recording privacy is fixed by a line in the docs rather than by a
+  settings check: Sentry's default masking is sufficient.
+- The "replay outside the bundle" check is a one-off proof plus a command in the
+  documentation; no permanent automated check is set up, and the audit catches a
+  regression.
+- Scalability readiness is defined as "a core with no walls": all state outside
+  the process, a second instance with no code changes.
+- File storage is S3-compatible on a single path (Garage in dev, any S3 in
+  production) rather than two modes, "disk or S3": one code path is cheaper than
+  branching.
+- Files are served through the API rather than straight from storage: it is
+  simpler, and the storage is never published to the internet. A signed link
+  points at an API endpoint, not into the bucket: the storage stays fully closed.
+- Subscriptions use Redis pub/sub (publish-subscribe) with notification
+  semantics; no delivery guarantee is built: "if an event must not be lost, that
+  is the job of the Asynq task queue, not of a subscription" (the rule goes into
+  the documentation).
+- Pagination is a rule in the documentation rather than a demo list in the
+  schema: zero sample code.
+- Migrating files already sitting on local disk is not done: there is no
+  production data, the start is clean.
+- ENV-CONTRACT and doctor.sh are updated in the same pass as any new environment
+  variables (storage, file visibility mode, link lifetime): otherwise the
+  settings go missing silently on someone else's host.
+- Postgres and Redis stay single instances: readiness for horizontal growth is
+  not the same as surviving an infrastructure outage.
+- The upload feature stays in the template: it is a working sample for derived
+  products.
+- The hygiene item "leak on a file-write timeout" is dropped: writing files by
+  hand disappears with the move to S3 — check it during that work; if iteration 2
+  does not happen, bring the item back.
+- File access: private mode by default through signed links; after being
+  challenged, a public mode behind one variable was added — a fast start for
+  lightweight products matters more than an unbreakable default, and turning
+  security off stays a conscious act in the settings.
+- The old public path for serving files is removed: access is only through signed
+  links (private) or through public mode.
+- GraphQL introspection and the interactive tooling stay open in production: the
+  schema holds no secrets and openness makes integration easier — the project
+  author's decision, made after a recommendation to close them.
+- A single user by design: no organisation scaffolding is built; the path to
+  adding teams lives only here in the PRD, and the docs are left alone.
+- No map of "escape routes" from the template's hard decisions is drawn up.
+- The showcase was rewritten as passive: no audience is defined and no
+  presentation happens; being public and readable is a principle, not a work
+  item. READMEs are updated alongside the iterations, and the doc audit catches
+  drift.
+- The language of the public repositories is English-only: uniformity for tools
+  and for casual readers.
+- The LikeC4 diagrams are living: they are updated in the same pass as an
+  architectural change; the cost is acceptable.
+- Derived products are created private by default (a line in DERIVE.md);
+  publishing is a conscious act.
+- No discipline is required of the commit history: the gates are what guarantee
+  quality.
+- The incidental-tidying criterion is accepted as part of iteration 1 despite
+  sitting at the end of the criteria list: the criteria are not grouped by
+  iteration.
+- The production checklist is embedded in the deploy steps rather than kept as a
+  separate document: it gets walked through on the way, otherwise nobody opens it.
+- Order of work: iterations 1 → 2 → 3; each is accepted against its own criteria,
+  including the manual setup.sh/doctor.sh check on a fresh clone.
+- The manual fresh-clone check (setup.sh and doctor.sh) is not a new feature but
+  an acceptance procedure for the existing `.env` contract (see "Data"), so it
+  lives outside "In scope".
+- The two-instance API readiness run is the opposite — part of iteration 2's
+  scope: it proves the new storage and subscription contracts rather than
+  something that already exists.
 
-## Жизненный цикл документа
+## Document lifecycle
 
-- Источник тем — аудит-цикл: пересмотр PRD (минимум — перед каждым
-  стартом продукта), точечный аудит кода и доков — следующая итерация
-  добавляется здесь же. Календарного ритма нет. Кроме аудита, темами
-  становятся экстренные фиксы безопасности и пункты «Потом» по их
-  записанным условиям.
-- Аудит выполняют автор и субагенты по специализациям; периодически —
-  чистый агент-аудитор без истории проекта: прошлые выводы не показывают
-  ему до его собственных находок.
-- Выполненная итерация отмечается строкой «— выполнена [дата]» у своего
-  заголовка.
-- Начатая итерация не прерывается: новая тема встаёт в очередь.
-  Исключение — экстренный фикс безопасности (известная уязвимость, CVE,
-  в зависимости): делается немедленно и темой очереди не считается.
-- При старте новой темы предыдущая сворачивается: в документе остаются
-  сжатые строки в «Решениях», развёрнутый текст живёт в git-истории.
-- Пункты «Потом» возвращаются в объём по записанным у них условиям,
-  отдельных триггеров для них не назначено.
-- Изменения этого документа проходят тот же процесс: правка → коммит →
-  свежий взгляд критика. Свободных правок нет.
+- Topics come from the audit cycle: a PRD review (at minimum before every product
+  start) and targeted audits of code and docs — the next iteration is added right
+  here. There is no calendar rhythm. Besides audits, topics also come from
+  emergency security fixes and from "Later" items under their recorded conditions.
+- Audits are run by the author and by subagents by specialisation; periodically
+  also by a clean auditor agent with no project history: earlier conclusions are
+  withheld from it until it has made its own findings.
+- A completed iteration is marked with a "— completed [date]" line next to its
+  heading.
+- An iteration once started is not interrupted: a new topic joins the queue. The
+  exception is an emergency security fix (a known vulnerability, a CVE in a
+  dependency): it is done immediately and does not count as a queued topic.
+- When a new topic starts, the previous one is folded up: compressed lines remain
+  in "Decisions", while the full text lives on in the git history.
+- "Later" items return to scope under the conditions recorded with them; no
+  separate triggers are assigned to them.
+- Changes to this document go through the same process: edit → commit → a fresh
+  critic's eye. There are no free-hand edits.
 
-## Открытые вопросы
+## Open questions
 
-Нет — известные пробелы либо закрыты, либо осознанно отложены с записью
-в «Решениях» и «Потом».
+None — the known gaps are either closed or knowingly deferred, with a record in
+"Decisions" and "Later".
