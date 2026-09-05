@@ -86,8 +86,9 @@ no `package.json`**:
 npm install                      # meta root: LikeC4 CLI + this repo's own git hook
 ```
 
-Then create each `.env` (nothing does it for you at the meta level) and verify the
-contract:
+Then configure both sides and verify the contract. `.env` is **optional** — exported
+environment variables work everywhere, `.env.example` lists every variable either way
+([docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md)). The copy-a-file route is the shortest:
 
 ```bash
 cp backend/.env.example backend/.env
@@ -114,15 +115,18 @@ Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
 
 ## Running the projects (separately)
 
-- **Backend** (`backend/`, liteend-go — Go): `cp .env.example .env` → `task start:dev`
-  (brings up Docker db+redis, runs goose migrations at startup, hot-reload; GraphQL at
-  `:4000/graphql` + gqlgen playground). First-time full onboarding: `task setup`.
-- **Frontend** (`frontend/`): `cp .env.example .env` → `npm run gen` (backend must be up)
+- **Backend** (`backend/`, liteend-go — Go): configure (`cp .env.example .env`, or export
+  the variables) → `task start:dev` (brings up Docker db+redis, runs goose migrations at
+  startup, hot-reload; GraphQL at `:4000/graphql` + gqlgen playground). First-time full
+  onboarding: `task setup`.
+- **Frontend** (`frontend/`): configure the same way → `npm run gen` (backend must be up)
   → `npm run start:dev` (serves at `:3000`).
+- **Note on `PORT`**: it is the only variable name both sides use, so export it per side —
+  it belongs to whichever app you are starting.
 - **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS,
   running more than one copy of each side): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
-Cross-project value contracts (must agree across the two `.env` files):
+Cross-project value contracts (must agree across the two sides' configurations):
 
 | Frontend | Backend | Meaning |
 |---|---|---|

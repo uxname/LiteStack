@@ -41,10 +41,15 @@ the backend side `backend/docs/adr/0002-object-storage-and-trusted-client-ip.md`
 
 Two equivalent paths per side — pick one.
 
+Configuration is read from the environment; a `.env` next to the compose file is an
+optional convenience, not a requirement (see [ENV-CONTRACT.md](./ENV-CONTRACT.md)). Both
+dev compose files stop at `docker compose config`, naming the variable, when a required
+value is missing from both — so nothing ever starts half-configured.
+
 **Backend** (`backend/`):
 
 ```bash
-cp .env.example .env
+cp .env.example .env      # or export the same variables — both work
 docker compose up -d      # all-in-one: app + Postgres + Redis + Garage + admin dashboards
 ```
 
@@ -70,7 +75,7 @@ file is actually uploaded.
 **Frontend** (`frontend/`):
 
 ```bash
-cp .env.example .env
+cp .env.example .env      # or export the same variables — both work
 docker compose up -d      # SSR container; PORT picks the HOST port, container listens on 3000
 ```
 
@@ -88,8 +93,10 @@ or the dev server: `npm run gen` (backend must be running) → `npm run start:de
 `frontend/.env` is for local development only. It is excluded from the Docker
 build context (`.dockerignore`), so it can never end up inside an image.
 
-After editing any `.env`, run `scripts/doctor.sh` from the meta root to verify
-the cross-project pairs (see [ENV-CONTRACT.md](./ENV-CONTRACT.md)).
+After changing any value, run `scripts/doctor.sh` from the meta root to verify
+the cross-project pairs (see [ENV-CONTRACT.md](./ENV-CONTRACT.md)). It reads each value
+the way the apps do — exported variable first, then that side's `.env` — so it works with
+or without the files.
 
 ## Health probes — which URL to point what at
 

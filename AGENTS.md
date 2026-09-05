@@ -69,9 +69,10 @@ mistakes become tomorrow's rules.
 | Anything backend-specific | [backend/AGENTS.md](./backend/AGENTS.md) |
 | Anything frontend-specific | [frontend/AGENTS.md](./frontend/AGENTS.md) |
 
-First-time setup of an existing clone: `scripts/setup.sh` (see `README.md`). Note it does
-**not** create the `.env` files — copy each `.env.example` yourself, then run
-`scripts/doctor.sh`.
+First-time setup of an existing clone: `scripts/setup.sh` (see `README.md`). It fetches
+dependencies only — configure each side yourself (copy its `.env.example` to `.env`, or
+export the variables: both are supported, see
+[docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md)), then run `scripts/doctor.sh`.
 
 ## Rules that hold everywhere
 

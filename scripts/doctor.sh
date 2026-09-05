@@ -2,10 +2,15 @@
 #
 # doctor.sh — verify the backend ↔ frontend env contract (docs/ENV-CONTRACT.md).
 #
-# Reads backend/.env and frontend/.env and checks the must-match pairs. A missing .env
-# falls back to .env.example so the diagnostics still run, but is itself reported as a
-# failure: the apps read only .env, so a green check against .env.example would describe
-# a configuration nothing actually runs with. Exits non-zero if any hard check fails.
+# Reads each value the way the apps read it: an exported environment variable
+# first, then that side's .env when the file exists. A .env is OPTIONAL — a
+# fully exported environment is a supported setup (docs/ENV-CONTRACT.md), and
+# both are checked here with the same strictness. A value found in neither place
+# is reported as unset, never borrowed from .env.example: a green check against
+# a file nothing reads would describe a configuration nothing runs with.
+#
+# Because an env-var-only setup gives each side its OWN environment, run this
+# where both are visible — or from a shell that exports both sides' variables.
 #
 # Usage:
 #   scripts/doctor.sh [--reachable]
@@ -19,23 +24,60 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBE=0
 [[ "${1:-}" == "--reachable" ]] && PROBE=1
 
-# envfile <dir>: echo the dir's .env, or .env.example if .env is absent.
-envfile() {
-  if [[ -f "$ROOT/$1/.env" ]]; then echo "$ROOT/$1/.env"; else echo "$ROOT/$1/.env.example"; fi
-}
-BE_ENV="$(envfile backend)"
-FE_ENV="$(envfile frontend)"
-
-# getval <file> <KEY>: value of KEY, last wins, quotes + inline comments stripped.
-# Prints nothing when the key is absent — that is a normal outcome this script is
-# built to report, so it must NOT be an error. Without the trailing `|| true`,
-# grep's exit 1 propagates through `pipefail` into `VAR="$(getval …)"` and `set -e`
-# kills the checker mid-run: a missing key produced no diagnostic at all, which is
-# the opposite of what an env doctor is for.
-getval() {
+# fileval <file> <KEY>: value of KEY in an .env file, last wins, quotes + inline
+# comments stripped. Prints nothing when the file or the key is absent — that is
+# a normal outcome this script is built to report, so it must NOT be an error.
+# Without the trailing `|| true`, grep's exit 1 propagates through `pipefail`
+# into `VAR="$(fileval …)"` and `set -e` kills the checker mid-run: a missing key
+# produced no diagnostic at all, which is the opposite of what an env doctor is
+# for.
+fileval() {
+  [[ -f "$1" ]] || return 0
   grep -E "^[[:space:]]*$2=" "$1" 2>/dev/null | tail -1 \
     | sed -E "s/^[[:space:]]*$2=//; s/[[:space:]]+#.*$//; s/^['\"]//; s/['\"]$//; s/[[:space:]]*$//" \
     || true
+}
+
+# val <side> <KEY>: the value that side's app would actually see, and where it
+# came from (in SRC, for the report).
+#
+# The frontend's PORT is the one name both sides use, so it can never be told
+# apart in a shared environment. It is not read from there at all: the
+# frontend's origin is VITE_BASE_URL — the address the browser really uses, and
+# the one CORS is checked against — so its port is taken from that.
+val() {
+  local side="$1" key="$2" v=""
+  if [[ "$side" == frontend && "$key" == PORT ]]; then
+    v="${VITE_BASE_URL:-}"
+    v="${v##*:}"; v="${v%%/*}"
+    [[ "$v" =~ ^[0-9]+$ ]] || v=""
+  else
+    v="${!key:-}"
+  fi
+  if [[ -n "$v" ]]; then SRC=environment; echo "$v"; return; fi
+
+  v="$(fileval "$ROOT/$side/.env" "$key")"
+  if [[ -n "$v" ]]; then SRC="$side/.env"; echo "$v"; return; fi
+
+  SRC=unset
+}
+
+# Where each side's configuration comes from, so the report is never ambiguous
+# about which values it just checked.
+srcline() {
+  local side="$1" envs=0 files=0 k out=""
+  shift
+  for k in "$@"; do
+    val "$side" "$k" >/dev/null
+    case "$SRC" in
+      environment) envs=$((envs + 1)) ;;
+      */.env)      files=$((files + 1)) ;;
+    esac
+  done
+  if [[ "$envs" -gt 0 ]]; then out="environment ($envs)"; fi
+  if [[ "$files" -gt 0 ]]; then out="${out:+$out + }$side/.env ($files)"; fi
+  printf '  %-10s %s\n' "$side:" "${out:-nothing configured}"
+  [[ -n "$out" ]]
 }
 
 FAIL=0
@@ -44,23 +86,38 @@ pass()  { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 fail()  { printf '  \033[31m✗\033[0m %s\n' "$1"; FAIL=$((FAIL+1)); }
 warn()  { printf '  \033[33m!\033[0m %s\n' "$1"; WARN=$((WARN+1)); }
 
+# The contract keys, per side — also what the source report below counts.
+BE_KEYS=(PORT CORS_ORIGIN OIDC_ISSUER OIDC_AUDIENCE OIDC_MOCK_ENABLED S3_PUBLIC_BASE_URL S3_BUCKET)
+FE_KEYS=(PORT VITE_BASE_URL VITE_OIDC_AUTHORITY VITE_OIDC_API_RESOURCE VITE_GRAPHQL_API_URL)
+
 echo "Env contract check"
-echo "  backend env:  ${BE_ENV#"$ROOT"/}"
-echo "  frontend env: ${FE_ENV#"$ROOT"/}"
+echo "  each value: exported environment first, then <side>/.env (optional)"
+srcline backend  "${BE_KEYS[@]}" ||
+  fail "backend: nothing configured — export its variables, or run: cp backend/.env.example backend/.env"
+srcline frontend "${FE_KEYS[@]}" ||
+  fail "frontend: nothing configured — export its variables, or run: cp frontend/.env.example frontend/.env"
 echo
 
-# 0. The .env files must exist at all — the apps read only .env, never .env.example.
-for side in backend frontend; do
-  if [[ ! -f "$ROOT/$side/.env" ]]; then
-    fail "$side/.env is missing (diagnostics below use .env.example, which the app does not read) — run: cp $side/.env.example $side/.env"
-  fi
-done
+BE_PORT="$(val backend PORT)"
+BE_AUD="$(val backend OIDC_AUDIENCE)"
+BE_ISS="$(val backend OIDC_ISSUER)"
+BE_CORS="$(val backend CORS_ORIGIN)"
+BE_MOCK="$(val backend OIDC_MOCK_ENABLED)"
 
-BE_PORT="$(getval "$BE_ENV" PORT)"
-BE_AUD="$(getval "$BE_ENV" OIDC_AUDIENCE)"
-BE_ISS="$(getval "$BE_ENV" OIDC_ISSUER)"
-BE_CORS="$(getval "$BE_ENV" CORS_ORIGIN)"
-BE_MOCK="$(getval "$BE_ENV" OIDC_MOCK_ENABLED)"
+# Storage: two addresses on purpose. S3_ENDPOINT is where the APP connects (inside
+# the container network); S3_PUBLIC_BASE_URL is the prefix the BROWSER resolves, and
+# it is stored verbatim in profiles.avatar_url — a typo here is permanent, so it is
+# worth a hard check rather than a discovery by a user looking at a broken image.
+BE_S3_PUBLIC="$(val backend S3_PUBLIC_BASE_URL)"
+BE_S3_BUCKET="$(val backend S3_BUCKET)"
+# Same default as internal/config: an unset S3_BUCKET means "uploads".
+BE_S3_BUCKET="${BE_S3_BUCKET:-uploads}"
+
+FE_PORT="$(val frontend PORT)"
+FE_BASE="$(val frontend VITE_BASE_URL)"
+FE_RES="$(val frontend VITE_OIDC_API_RESOURCE)"
+FE_AUTH="$(val frontend VITE_OIDC_AUTHORITY)"
+FE_GQL="$(val frontend VITE_GRAPHQL_API_URL)"
 
 # With OIDC_MOCK_ENABLED=true the backend ignores its own OIDC_* vars entirely
 # (docs/ENV-CONTRACT.md), so the two OIDC pairs are *expected* to diverge — the
@@ -71,21 +128,6 @@ if [[ "$BE_MOCK" == "true" ]]; then
 else
   oidc() { fail "$1"; }
 fi
-
-# Storage: two addresses on purpose. S3_ENDPOINT is where the APP connects (inside
-# the container network); S3_PUBLIC_BASE_URL is the prefix the BROWSER resolves, and
-# it is stored verbatim in profiles.avatar_url — a typo here is permanent, so it is
-# worth a hard check rather than a discovery by a user looking at a broken image.
-BE_S3_PUBLIC="$(getval "$BE_ENV" S3_PUBLIC_BASE_URL)"
-BE_S3_BUCKET="$(getval "$BE_ENV" S3_BUCKET)"
-# Same default as internal/config: an unset S3_BUCKET means "uploads".
-BE_S3_BUCKET="${BE_S3_BUCKET:-uploads}"
-
-FE_PORT="$(getval "$FE_ENV" PORT)"
-FE_BASE="$(getval "$FE_ENV" VITE_BASE_URL)"
-FE_RES="$(getval "$FE_ENV" VITE_OIDC_API_RESOURCE)"
-FE_AUTH="$(getval "$FE_ENV" VITE_OIDC_AUTHORITY)"
-FE_GQL="$(getval "$FE_ENV" VITE_GRAPHQL_API_URL)"
 
 # 1. OIDC audience
 if [[ -n "$BE_AUD" && "$BE_AUD" == "$FE_RES" ]]; then
@@ -137,14 +179,26 @@ else
     fail "S3_PUBLIC_BASE_URL ($BE_S3_PUBLIC) must start with http:// or https:// — the browser resolves it as-is"
   fi
 
-  # (b) It must END with the bucket name: a file URL is this prefix + "/" + object key,
-  # and the bucket is part of the prefix. Dropping it is the classic typo, and it 404s
-  # every upload. A trailing slash is tolerated — the app trims one.
-  s3_path="${BE_S3_PUBLIC%/}"
-  if [[ "$s3_path" == */"$BE_S3_BUCKET" ]]; then
-    pass "S3_PUBLIC_BASE_URL ends with the bucket name ($BE_S3_BUCKET)"
+  # (b) The prefix has to ADDRESS the bucket, and there are two ways to do it:
+  #   host-addressed  http://localhost:3902            — the dev Garage picks the
+  #                   bucket from the Host header, so the prefix carries no path
+  #                   at all and the whole path IS the object key;
+  #   path-addressed  https://files.example.com/uploads — a proxy or path-style S3
+  #                   endpoint, where the bucket is the last path segment.
+  # So a path-less prefix is correct as it stands. A prefix that HAS a path must
+  # end with the bucket: any other path is prepended to every object key and 404s
+  # every upload — the classic typo. A trailing slash is tolerated (the app trims one).
+  s3_after_scheme="${BE_S3_PUBLIC%/}"
+  s3_after_scheme="${s3_after_scheme#*://}"
+  # Empty unless the prefix carries a path, i.e. unless it is more than host[:port].
+  s3_path=""
+  if [[ "$s3_after_scheme" == */* ]]; then s3_path="${s3_after_scheme#*/}"; fi
+  if [[ -z "$s3_path" ]]; then
+    pass "S3_PUBLIC_BASE_URL addresses the bucket by host (no path prefix)"
+  elif [[ "/$s3_path" == */"$BE_S3_BUCKET" ]]; then
+    pass "S3_PUBLIC_BASE_URL path ends with the bucket name ($BE_S3_BUCKET)"
   else
-    fail "S3_PUBLIC_BASE_URL ($BE_S3_PUBLIC) does not end with the bucket '$BE_S3_BUCKET' — file links would 404"
+    fail "S3_PUBLIC_BASE_URL ($BE_S3_PUBLIC) has a path that does not end with the bucket '$BE_S3_BUCKET' — that path is prepended to every object key and file links would 404"
   fi
 
   # (c) The host has to be resolvable BY A BROWSER. A single-label name is a

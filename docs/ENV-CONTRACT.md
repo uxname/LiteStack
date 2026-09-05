@@ -7,17 +7,38 @@ and any missing required `VITE_*` var (the frontend server refuses to boot, nami
 variable in the log). Both prod compose files fail even earlier — at
 `docker compose config` time, naming the missing variable — so a half-configured host never
 reaches a container. No `.env` is required for that; exported environment variables work.
-`scripts/doctor.sh` checks these pairs automatically — run it after editing any `.env`.
+`scripts/doctor.sh` checks these pairs automatically — run it after changing any value.
 It also hard-checks `S3_PUBLIC_BASE_URL` on its own, because nothing else can: the app
 only concatenates that prefix with an object key, so a wrong one yields a link that is
 valid-looking and dead, and it is already stored in `profiles.avatar_url` by the time
-anyone sees a broken image. The check requires an absolute `http(s)` URL, ending in the
-bucket name, on a host a browser can actually resolve — a single-label host like
-`garage` is a container-network name, right for `S3_ENDPOINT` and dead in a link.
+anyone sees a broken image. The check requires an absolute `http(s)` URL on a host a
+browser can actually resolve — a single-label host like `garage` is a container-network
+name, right for `S3_ENDPOINT` and dead in a link — and, when the prefix carries a path,
+that the path ends in the bucket name.
 
-Source of truth: `backend/.env` and `frontend/.env`. A missing `.env` makes
-`scripts/doctor.sh` fall back to that side's `.env.example` for the diagnostics, but the
-missing file itself is reported as a failure — the apps read only `.env`.
+## Where the values come from
+
+**`.env` is optional. A plain exported environment is a first-class, fully supported
+setup** — every part of the stack works without a single `.env` file
+([ADR-0006](./adr/0006-env-vars-are-the-config-source-env-file-optional.md)):
+
+| Piece | How it reads the value |
+|---|---|
+| backend app (`task start:dev`, `go run`) | real environment; `backend/.env` loaded only if the file exists, and it never overrides an exported variable |
+| frontend app (`npm run start:dev`, SSR container) | real environment; `frontend/.env` loaded the same way |
+| both `docker-compose.yml` (dev) and `docker-compose.prod.yml` | explicit `environment:` mappings fed by interpolation — shell variables first, then a `.env` next to the file when it exists |
+| `task db:migrate`, `npm run gen` | real environment, `.env` as a fallback |
+| `scripts/doctor.sh` | exported variable first, then that side's `.env`; **never** `.env.example`, because a green check against a file nothing reads describes a configuration nothing runs with |
+
+Two consequences worth knowing:
+
+- **`PORT` is the one variable name both sides use**, so one shell cannot hold both
+  values. Export it per side — it belongs to whichever app you are starting. `doctor.sh`
+  therefore takes the frontend's port from `VITE_BASE_URL` (the origin the browser really
+  uses) instead of from `PORT`.
+- **The dev compose files fail at `docker compose config`**, naming the variable, when a
+  required value is missing — the same guard the prod files use. Nothing starts
+  half-configured.
 
 ## Must-match pairs
 
@@ -74,7 +95,8 @@ variable unset, the address collapses to the string `undefined` and codegen fail
 `Failed to load schema from undefined` — a message that never says "variable", so check the
 variable before you suspect the backend. Correct order for a fresh project:
 
-1. Configure `backend/.env` and `frontend/.env` (copy from `.env.example`).
+1. Configure both sides — export the variables, or copy each `.env.example` to `.env`
+   (`.env.example` is the documented list of every variable, either way).
 2. `scripts/doctor.sh` — confirm the pairs above agree.
 3. Start the backend (`cd backend && task start:dev` — brings up Docker db+redis, runs goose
    migrations automatically at startup, then serves with hot-reload).
