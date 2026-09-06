@@ -344,8 +344,13 @@ NONCE="scale-check-$$-$RANDOM"
 if ! exec 3<>"/dev/tcp/127.0.0.1/$BE_B_HOST_PORT"; then
   fail "could not open a socket to backend copy B on port $BE_B_HOST_PORT"
 else
-  printf 'GET /graphql HTTP/1.1\r\nHost: 127.0.0.1:%s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: graphql-transport-ws\r\n\r\n' \
-    "$BE_B_HOST_PORT" >&3
+  # Sec-WebSocket-Key is any 16 random bytes, base64'd (RFC 6455 §4.1). The server's
+  # Accept hash is never read back here, so a fresh key per run is fine — and computing
+  # it keeps a static base64 blob that a secret scanner mistakes for a credential out
+  # of the source.
+  ws_key=$(head -c 16 /dev/urandom | base64)
+  printf 'GET /graphql HTTP/1.1\r\nHost: 127.0.0.1:%s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: graphql-transport-ws\r\n\r\n' \
+    "$BE_B_HOST_PORT" "$ws_key" >&3
   cat <&3 >"$WORK/ws.raw" &
   READER=$!
 

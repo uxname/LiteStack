@@ -48,7 +48,7 @@ the artefacts it owns.
 |---|---|---|
 | **backend** (Go) | `task check` (codegen-freshness, build, lint, arch, deadcode, vuln, fmt, tidy, secrets) | `task test:cov` (unit + integration via testcontainers + coverage floors; needs Docker) |
 | **frontend** (npm) | `npm run verify:commit` (`check` + gitleaks `secrets`) | `npm run verify:push` (`verify:commit` + `test:cov` + Playwright E2E + Storybook build) |
-| **meta** (npm) | `npm run scale:validate` (compose + Caddyfile syntax) and `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)) | — (nothing slow to run) |
+| **meta** (npm) | `npm run scale:validate` (compose + Caddyfile syntax), `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)) and `npm run secrets` (gitleaks on the staged diff, skipped if not installed) | — (nothing slow to run) |
 
 Hooks are thin — they just call those npm/task scripts, so you can run the exact same gate by
 hand. `--no-verify` skips them and nothing else will catch it, so don't. Frontend E2E tests are

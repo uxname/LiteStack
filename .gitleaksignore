@@ -1,0 +1,6 @@
+# The pre-commit hook (`npm run secrets`) scans only the staged diff, so it never
+# reaches this. This entry is for a manual full-history scan (`gitleaks git .`):
+# it clears one false positive — the RFC 6455 §1.3 example Sec-WebSocket-Key ("the
+# sample nonce", base64) that the old scale-check.sh websocket client sent as a
+# literal. HEAD computes the key at runtime instead.
+99a3711ada379733e54568f7e26b482871a0ad05:scripts/scale-check.sh:generic-api-key:344

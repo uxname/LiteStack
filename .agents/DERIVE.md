@@ -7,8 +7,10 @@ repoint → rename → install → wire env → verify → first commit.
 The mechanical core, if you do it by hand:
 
 1. **Create your own repos** for the meta, backend and frontend on any git host (fork or
-   push copies of the `uxname/*` templates). You may keep the template as an `upstream`
-   remote, but note we do not chase upstream changes.
+   push copies of the `uxname/*` templates). **Create all three as private repositories.**
+   A derived product is your own code, not a template; making a repo public is a separate,
+   deliberate decision you take later, not the default. You may keep the template as an
+   `upstream` remote, but note we do not chase upstream changes.
 2. **Re-point the submodules:**
    ```bash
    git config -f .gitmodules submodule.liteend-go.url <your-backend-repo-url>

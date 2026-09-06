@@ -1,9 +1,11 @@
 # Git hooks for the meta-repo. There is no CI (docs/adr/0001-no-ci-gates-live-in-git-hooks.md),
 # so this hook is the only thing that reads the meta-repo's own artefacts — the scale
-# stand's config and the LikeC4 model — before they land.
+# stand's config and the LikeC4 model — and scans the staged diff for secrets before
+# they land.
 #
 # Thin on purpose, like the submodules' hooks: the logic lives in npm scripts, so the
-# same checks run by hand with `npm run scale:validate` / `npm run likec4:validate`.
+# same checks run by hand with `npm run scale:validate` / `npm run likec4:validate` /
+# `npm run secrets`.
 #
 # Installed by `npm install` at the meta root (the `prepare` script in package.json),
 # which `scripts/setup.sh` already runs — a clone that skipped it has no hook, exactly
@@ -22,3 +24,11 @@ pre-commit:
       # only thing that enforces it. The npm script also fails on "Valid (0 files)":
       # an empty or misplaced model directory validates green and proves nothing.
       run: npm run likec4:validate
+
+    secrets:
+      # gitleaks over the staged diff — the commit's own content, which is what a
+      # pre-commit gate should check. The submodules scan history instead, but they
+      # also have a pre-push hook; the meta-repo has none, so this looks at the commit
+      # being made. Skips itself when gitleaks is missing (ADR-0001 philosophy: no
+      # hard requirement).
+      run: npm run secrets

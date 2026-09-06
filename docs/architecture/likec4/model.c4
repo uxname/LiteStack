@@ -35,7 +35,7 @@ model {
   }
 
   engineer = actor 'Engineer (DevOps)' {
-    description 'Builds and ships images by hand, and runs the scale-check stand before shipping. The template has NO CI by design: all checks live in git hooks (the submodules check their own code; the meta-repo hook only validates the stand configuration), and every deploy is an explicit command from docs/DEPLOY.md.'
+    description 'Builds and ships images by hand, and runs the scale-check stand before shipping. The template has NO CI by design: all checks live in git hooks (the submodules check their own code; the meta-repo hook checks its own artefacts — the stand config and the LikeC4 model — and scans the staged diff for secrets), and every deploy is an explicit command from docs/DEPLOY.md.'
   }
 
   lstack = system 'LiteStack' {
@@ -146,7 +146,7 @@ model {
 
   engineer -> buildsrv 'builds the images'
   buildsrv -> registry 'pushes the images' 'docker push <IMAGE_REGISTRY>liteend|litefront:<IMAGE_TAG>; for a private registry — docker login first. The frontend image carries no environment inside it any more, so the very same tag can be promoted from staging to production without a rebuild.'
-  engineer -> stand 'runs the scale check before shipping' 'Brings the stand up by hand and runs scripts/scale-check.sh. Never in a git hook: starting four containers is far too slow for a commit, so the hook only validates the stand compose file and Caddyfile syntax.'
+  engineer -> stand 'runs the scale check before shipping' 'Brings the stand up by hand and runs scripts/scale-check.sh. Never in a git hook: starting four containers is far too slow for a commit, so for the stand the hook only checks its compose file and Caddyfile syntax.'
   engineer -> runsrv 'ships the release'
   runsrv -> registry 'pulls the images' 'docker compose -f docker-compose.prod.yml pull. Both prod composes have no build: on purpose: a failed pull fails the deploy instead of silently rebuilding whatever sits on the host.'
 }
