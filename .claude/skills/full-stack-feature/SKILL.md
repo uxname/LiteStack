@@ -73,7 +73,7 @@ Read `frontend/AGENTS.md` and follow its routing table to the file for your task
 - GraphQL operation, page/route, slice, component, store, protected route →
   `frontend/.agents/ARCHITECTURE.md`
 - Tests and stories → `frontend/.agents/TESTING.md`
-- User-facing text, styling, theming → `frontend/.agents/STYLE.md`
+- User-facing text, styling, theming → `frontend/.agents/DESIGN.md`
 - A failing gate, env, dependencies → `frontend/.agents/QUALITY-GATES.md`
 - Need to see what the UI actually does → `frontend/.agents/OBSERVABILITY.md`
 
