@@ -7,7 +7,7 @@
     "likec4:validate": "out=$(likec4 validate docs/architecture/likec4 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; case \"$out\" in *\"(0 file\"*) echo \"likec4: no files were parsed - the model path is wrong or the model is gone\" >&2; exit 1;; esac",
     "likec4:start": "likec4 start docs/architecture/likec4",
     "scale:validate": "if command -v docker >/dev/null 2>&1; then docker compose -f scale/docker-compose.yml config -q; else echo 'docker not installed — skipping compose check'; fi && if command -v caddy >/dev/null 2>&1; then caddy validate --config scale/Caddyfile --adapter caddyfile; elif command -v docker >/dev/null 2>&1; then docker run --rm -v \"$PWD/scale/Caddyfile:/etc/caddy/Caddyfile:ro\" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; else echo 'neither caddy nor docker — skipping Caddyfile check'; fi",
-    "secrets": "bash -c 'if command -v gitleaks >/dev/null 2>&1; then gitleaks git --staged --no-banner .; else echo \"⚠️  gitleaks not installed; skipping secrets scan.\"; fi'",
+    "secrets": "bash -c 'if command -v gitleaks >/dev/null 2>&1; then gitleaks git --staged -v --no-banner .; else echo \"⚠️  gitleaks not installed; skipping secrets scan.\"; fi'",
     "prepare": "lefthook install || true"
   },
   "devDependencies": {

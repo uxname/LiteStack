@@ -168,10 +168,10 @@ business waiting on containers:
   validator reports `Valid (0 files)` — an empty or misplaced model directory validates
   green and would prove nothing.
 - `npm run secrets` runs `gitleaks` over the **staged diff** to catch a key or token
-  before it is committed. (Both submodules scan history instead, but they also have a
-  pre-push hook; the meta-repo has none, so its check looks at the commit being made.)
-  It skips itself when `gitleaks` is not installed — there is no hard requirement (see
-  [`ADR-0001`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).
+  before it is committed. (The submodules scan history instead; the meta-repo scans the
+  staged diff because it has no pre-push hook behind it. A full-history sweep is a
+  manual `gitleaks git .`.) It skips itself when `gitleaks` is not installed — there is
+  no hard requirement (see [`ADR-0001`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).
 
 There is no CI behind either (see [`docs/adr/0001-no-ci-gates-live-in-git-hooks.md`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)),
 so don't commit with `--no-verify`.
@@ -195,9 +195,9 @@ docker compose -f scale/docker-compose.yml down -v
 
 Four things to know before you read anything into a green run:
 
-- **You start it by hand.** The git hook only checks its config files. Bringing the
-  stand up takes minutes on the first run (a Go build plus an npm ci and a Vite
-  build) — far too slow for a commit.
+- **You start it by hand.** For the stand, the git hook only checks its config files,
+  never runs it. Bringing the stand up takes minutes on the first run (a Go build plus
+  an npm ci and a Vite build) — far too slow for a commit.
 - **It needs Docker Engine 27.4 or newer.** The Garage initializer mounts the Garage
   binary straight out of its image (`type: image`, added in 27.4), which is the only
   way to run that CLI: the image is built `FROM scratch` and has no shell.
