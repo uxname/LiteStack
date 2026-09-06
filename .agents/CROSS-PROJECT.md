@@ -98,7 +98,7 @@ Reading the logs: `backend/docs/DEBUGGING.md`, `frontend/.agents/OBSERVABILITY.m
 - **Formatters must not be shared**: backend = gofumpt + golangci-lint; frontend =
   Biome (double quotes). Never copy formatting or lint config across the boundary.
 - **Run the projects separately**, each per its own `AGENTS.md`; there is no root
-  orchestration. Backend: `cd backend && task start:dev` (brings up Docker db+redis,
-  runs migrations, hot reload). Both need their own `.env`.
+  orchestration. Backend: `cd backend && task start:dev` (brings up Docker
+  db+redis+object store, runs migrations, hot reload). Both need their own `.env`.
 - **Values copied between a config and a doc always drift.** Prefer pointing at the file
   that owns the number (coverage floors, field limits, tool versions) over restating it.

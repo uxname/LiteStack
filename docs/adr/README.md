@@ -58,5 +58,4 @@ its own.
 as `meta ADR-0001`, `backend ADR-0001`. A sub-project ADR that the other side must obey is
 worth one line here too — a link, never a copy, because a copy is what drifts.
 
-Written in **English**, like everything else in the repo. (`PRD.md` is the one deliberate
-exception — see the decisions section there.)
+Written in **English**, like everything else in the repo.

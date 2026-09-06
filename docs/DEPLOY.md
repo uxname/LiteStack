@@ -66,11 +66,10 @@ key and the bucket — so there is no manual step after `up`.
 > is the only way to run its CLI: that image is built `FROM scratch` and contains
 > no shell. On an older Engine the `up` fails on that mount.
 
-For code work prefer hot-reload: `task start:dev` (brings up db+redis in Docker,
-runs the server locally with wgo). First clone: `task setup`. Neither of those
-starts the object store, so add `docker compose up -d garage garage-init` when
-you want `POST /upload` to work — the app boots without it and only fails when a
-file is actually uploaded.
+For code work prefer hot-reload: `task start:dev` (brings up Postgres, Redis and the
+Garage object store in Docker via `docker compose up -d db redis garage garage-init`,
+then runs the server locally with wgo). First clone: `task setup` does the same plus
+codegen and migrations. `POST /upload` works out of the box.
 
 **Frontend** (`frontend/`):
 

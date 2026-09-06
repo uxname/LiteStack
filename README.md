@@ -18,25 +18,41 @@ A full-stack **boilerplate** — in the same spirit as LiteEnd and LiteFront —
 a backend (`backend`) and a frontend (`frontend`) as git submodules, with a thin
 coordination layer (`AGENTS.md` + cross-project skills) tuned for AI coding agents.
 
-LiteStack runs nothing itself; each sub-project runs on its own. It carries no project
-content (no docs/tasks/ideas) so you can manage that however you like (your own task
-manager, bmad-method, etc.).
+LiteStack runs nothing itself; each sub-project runs on its own. Beyond the coordination
+layer (`AGENTS.md`, the ADRs, the deploy runbook, the LikeC4 model) it carries no task or
+issue tracking, so you can manage that however you like (your own task manager,
+bmad-method, etc.).
 
 ## Layout
 
 ```
 LiteStack/
-├── AGENTS.md                  # entry point: meta-project model, cross-project rules, two-mode git
-├── CLAUDE.md                  # pointer to AGENTS.md
-├── package.json               # meta tooling: LikeC4 CLI + lefthook (devDeps), likec4:*/scale:* scripts
-├── lefthook.yml               # the meta-repo's own git hook (see "Meta-repo git hook")
-├── .agents/                   # cross-project instruction files AGENTS.md routes to
-├── docs/                      # deploy runbook, env contract, ADRs, the LikeC4 model
-├── scripts/                   # setup.sh, doctor.sh (env contract), scale-check.sh
-├── scale/                     # local multi-copy stand: 2+2 copies behind one Caddy
-├── backend/                   # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
-├── frontend/                  # submodule → litefront (Vite · React 19 · URQL)
-└── .claude/skills/            # the four cross-project skills
+├── AGENTS.md                       # entry point: meta-project model, cross-project rules, two-mode git
+├── CLAUDE.md                       # pointer to AGENTS.md
+├── PRD.md                          # the product requirements doc (its own edit/critic lifecycle)
+├── LICENSE                         # MIT
+├── package.json                    # meta tooling: LikeC4 CLI + lefthook (devDeps), likec4:*/scale:* scripts
+├── package-lock.json
+├── lefthook.yml                    # the meta-repo's own git hook (see "Meta-repo git hook")
+├── renovate.json                   # Renovate dependency-update config
+├── .gitignore
+├── .gitmodules                     # submodule URLs (template vs derived — see OPERATING-MODE.md)
+├── .agents/                        # cross-project instruction files AGENTS.md routes to
+│   ├── CROSS-PROJECT.md
+│   ├── DERIVE.md
+│   └── OPERATING-MODE.md
+├── docs/
+│   ├── DEPLOY.md                   # deploy runbook
+│   ├── ENV-CONTRACT.md             # the cross-side env contract
+│   ├── TEAM.md                     # team process (branches, PRs, reviews)
+│   ├── adr/                        # architecture decision records (+ README.md, TEMPLATE.md)
+│   ├── retro/                      # session retrospectives (README.md + TEMPLATE.md; kept empty)
+│   └── architecture/likec4/        # the living LikeC4 model (model.c4)
+├── scripts/                        # setup.sh, doctor.sh, scale-check.sh, rename-project.sh
+├── scale/                          # local multi-copy stand: 2+2 copies behind one Caddy
+├── backend/                        # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
+├── frontend/                       # submodule → litefront (Vite · React 19 · URQL)
+└── .claude/skills/                 # the four cross-project skills
 ```
 
 **Instructions vs skills.** Each project has one entry point — `AGENTS.md` — holding the
@@ -116,9 +132,9 @@ Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
 ## Running the projects (separately)
 
 - **Backend** (`backend/`, liteend-go — Go): configure (`cp .env.example .env`, or export
-  the variables) → `task start:dev` (brings up Docker db+redis, runs goose migrations at
-  startup, hot-reload; GraphQL at `:4000/graphql` + gqlgen playground). First-time full
-  onboarding: `task setup`.
+  the variables) → `task start:dev` (brings up Docker db+redis+object store, runs goose
+  migrations at startup, hot-reload; GraphQL at `:4000/graphql` + gqlgen playground).
+  First-time full onboarding: `task setup`.
 - **Frontend** (`frontend/`): configure the same way → `npm run gen` (backend must be up)
   → `npm run start:dev` (serves at `:3000`).
 - **Note on `PORT`**: it is the only variable name both sides use, so export it per side —

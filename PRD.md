@@ -1,8 +1,6 @@
 ---
 prd_workflow: standard # blitz | standard
 product_class: 'starter template for building products (boilerplate)' # product class, see "Product class recon"
-blitz_round: 3
-blitz_rounds_total: 10
 standard_round: 5
 standard_rounds_total: 7
 ---

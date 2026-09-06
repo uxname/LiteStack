@@ -49,8 +49,8 @@ codegen-freshness, build, lint, vuln, format, tidy, secrets).
 
 ```bash
 # in backend/ (separate terminal)
-task start:dev                    # brings up Docker db+redis, runs migrations (goose,
-                                  # programmatic), GraphQL live at localhost:4000/graphql
+task start:dev                    # brings up Docker db+redis+object store, runs migrations
+                                  # (goose, programmatic), GraphQL live at localhost:4000/graphql
 ```
 
 The backend MUST be running for the next step. (Migrations run automatically at startup —

@@ -95,7 +95,7 @@ The frontend generates GraphQL types from the backend's **live** schema — back
 first.
 
 ```bash
-( cd backend && task start:dev & )          # brings up Docker db+redis, runs goose migrations, serves
+( cd backend && task start:dev & )          # brings up Docker db+redis+object store, runs goose migrations, serves
 # wait for it, then verify GraphQL actually answers (not just /readyz):
 curl -s -X POST localhost:4000/graphql -H 'content-type: application/json' \
      -d '{"query":"{ __typename }"}'      # expect {"data":{"__typename":"Query"}}

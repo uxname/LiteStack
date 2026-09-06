@@ -98,8 +98,8 @@ variable before you suspect the backend. Correct order for a fresh project:
 1. Configure both sides — export the variables, or copy each `.env.example` to `.env`
    (`.env.example` is the documented list of every variable, either way).
 2. `scripts/doctor.sh` — confirm the pairs above agree.
-3. Start the backend (`cd backend && task start:dev` — brings up Docker db+redis, runs goose
-   migrations automatically at startup, then serves with hot-reload).
+3. Start the backend (`cd backend && task start:dev` — brings up Docker db+redis+object store,
+   runs goose migrations automatically at startup, then serves with hot-reload).
 4. Verify GraphQL: `curl -s -X POST localhost:<BE_PORT>/graphql -H 'content-type: application/json' -d '{"query":"{ __typename }"}'`.
 5. `cd frontend && npm run gen` (now the schema is reachable).
 
