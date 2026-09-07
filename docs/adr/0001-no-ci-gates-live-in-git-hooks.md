@@ -6,8 +6,8 @@
 ## Context
 
 LiteStack is a boilerplate maintained by a single author and cloned into private derived
-products on arbitrary git hosts. `PRD.md` states the constraint directly: the project
-deliberately has no CI, and no solution may require one to appear.
+products on arbitrary git hosts. The project deliberately has no CI, and no solution
+may require one to appear.
 
 The quality bar is not low, though: `backend/` runs `task check` (lint, arch-lint,
 gitleaks, tests) and `frontend/` runs `npm run check` (Biome, tsc, knip, steiger, the
@@ -38,7 +38,7 @@ push. There is exactly **one gate command per side** — `task check` in `backen
 - Nothing enforces the gate on a machine that never installed the hooks: `npm install`
   (frontend) and `task` setup (backend) are what install them, so a fresh clone that
   skipped setup is unprotected. `scripts/doctor.sh` is the check for that.
-- Commit-history discipline is deliberately **not** required (`PRD.md`): quality comes from
+- Commit-history discipline is deliberately **not** required: quality comes from
   the gates, not from how the commits are shaped.
 - Adding CI later is not blocked — but it must not become the only place a gate runs, or
   the local guarantee degrades into a formality.

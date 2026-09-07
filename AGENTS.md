@@ -89,7 +89,7 @@ export the variables: both are supported, see
 6. **After subagents run, treat the git index as untrusted**: `git status` in all three
    repos, `git reset` what you did not stage, then stage deliberately.
 7. **Commit messages are Conventional Commits, in English**: `type(scope): summary`, all
-   lower case — `docs(prd):`, `chore(submodules):`, `fix(scripts):`, `feat(likec4):`. The
+   lower case — `docs(adr):`, `chore(submodules):`, `fix(scripts):`, `feat(likec4):`. The
    scope is the area you touched; drop it only when the change is genuinely global. No
    discipline beyond that is required of the history — the gates are what guarantee
    quality ([ADR-0001](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).

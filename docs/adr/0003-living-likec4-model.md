@@ -9,8 +9,8 @@
 diagrams rot faster than any other document: they are written once, drift quietly, and then
 mislead precisely the reader who trusted them — a new agent with no other map.
 
-`PRD.md` records the decision as taken and priced: the schemas are living documents,
-updated in the same pass as the architectural change, and that cost is acceptable.
+The decision is taken and priced: the schemas are living documents, updated in the
+same pass as the architectural change, and that cost is acceptable.
 
 ## Decision
 
@@ -23,8 +23,8 @@ what the code actually does — not what it was supposed to do.
 - **Regenerate the diagram from code** — nothing generates a *useful* C4 model; the value
   is in the boundaries and the intent, which are not in the source.
 - **Refresh it periodically (audit sweep)** — that is how documentation drift is handled
-  elsewhere here (`PRD.md`), but a stale architecture map is more expensive than a stale
-  README: it is read first and trusted most.
+  elsewhere here (meta ADR-0007), but a stale architecture map is more expensive than a
+  stale README: it is read first and trusted most.
 - **Drop the model** — leaves the seams undocumented in a project whose entire job is to
   describe seams.
 

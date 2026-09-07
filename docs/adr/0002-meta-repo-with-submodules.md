@@ -35,8 +35,8 @@ the cross-project skills, the operating mode.
   rewriting history.
 - **A cross-cutting change is three commits and several PRs** (`docs/TEAM.md`), and the
   submodule pointers must be recorded in the meta-repo or the change is invisible to
-  anyone who clones. `PRD.md` accepts this risk explicitly; the `commit` skill exists to
-  make the sequence mechanical.
+  anyone who clones. The meta-repo accepts this risk explicitly; the `commit` skill
+  exists to make the sequence mechanical.
 - A stale pointer looks like "the fix didn't work" on someone else's clone — the most
   common confusion this topology creates.
 - Tooling has to be submodule-aware: after any subagent run, treat the git index in all

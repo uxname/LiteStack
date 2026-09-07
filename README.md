@@ -29,7 +29,6 @@ bmad-method, etc.).
 LiteStack/
 ├── AGENTS.md                       # entry point: meta-project model, cross-project rules, two-mode git
 ├── CLAUDE.md                       # pointer to AGENTS.md
-├── PRD.md                          # the product requirements doc (its own edit/critic lifecycle)
 ├── LICENSE                         # MIT
 ├── package.json                    # meta tooling: LikeC4 CLI + lefthook (devDeps), likec4:*/scale:* scripts
 ├── package-lock.json
