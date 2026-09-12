@@ -19,9 +19,6 @@ Use [`TEMPLATE.md`](./TEMPLATE.md) verbatim. Frontmatter `date`, `topic`, `tags`
 (`backend`/`frontend`/`meta`/`cross`) is **mandatory**. Record only what went wrong; every
 problem gets a one-line imperative rule; one fact per bullet.
 
-## When there are many of them
-
-Read them in a separate thread so they do not bloat the working context — give a subagent
-this instruction: *read every `docs/retro/*.md` (skip `README.md` and `TEMPLATE.md`) and
-return ONLY a deduplicated, compact list of the "Rule — do this next time" lines, grouped
-by area (backend / frontend / meta / cross); no file dumps, no narrative.*
+Once there are many of them, read them in a separate thread so they do not bloat the
+working context: ask a subagent for a deduplicated list of the "Rule — do this next time"
+lines, grouped by area, and nothing else.
