@@ -3,124 +3,48 @@ name: new-project
 description: Create a NEW project (backend + frontend pair) from the LiteStack templates as a meta-repo with submodules, in DERIVED mode. Use when the user wants to start a brand-new product/app from LiteStack — "new project from the template", "scaffold a new app", "bootstrap a new LiteStack project". Produces the same meta+submodules shape as LiteStack, repointed at the team's own repos, renamed, installed, and wired. Replaces the removed kodu start/*-init pipeline.
 ---
 
-The user wants to start a **new project** from LiteStack. The deliverable is a meta-repo with
-`backend/` and `frontend/` submodules (the LiteStack shape) pointing at the **team's own**
-repos (DERIVED mode), with the template identity renamed and the env contract satisfied.
+The deliverable is a meta-repo with `backend/` and `frontend/` submodules pointing at the
+**team's own** repos (DERIVED mode), renamed off the template identity and running. The
+mechanics are written down already — [`.agents/DERIVE.md`](../../../.agents/DERIVE.md) for
+repointing and renaming, [`docs/ENV-CONTRACT.md`](../../../docs/ENV-CONTRACT.md) for the env
+pairs. This skill covers only the parts that need a human.
 
-This skill is the conductor. The mechanical steps are tested scripts at the meta root
-(`scripts/rename-project.sh`, `scripts/setup.sh`, `scripts/doctor.sh`); the judgment steps
-(creating remote repos, configuring Logto, confirming names) are yours to drive with the user.
+## Ask first
 
-## Step 0: Gather inputs (ask the user)
+- **Project name** (machine): lowercase `[a-z0-9-]`, e.g. `acme-portal` — it becomes npm
+  package names, the docker network and the theme store key.
+- **Display brand** (optional; default = Title-Cased name).
+- **Git host + owner** for the three repos, and the **target directory**.
 
-- **Project name** (machine): lowercase `[a-z0-9-]`, e.g. `acme-portal`. Used for npm package
-  names, the docker network, the theme store key.
-- **Display brand** (optional): human brand word, e.g. `Acme`. Default = Title-Cased name.
-- **Git host + owner**: where the three repos will live (GitHub/GitLab org or user).
-- **Target directory** for the new meta-repo checkout.
+## Then, in order
 
-Confirm these before touching anything.
+1. **Create three empty remote repos** (meta, backend, frontend) on the team's host — via
+   `gh`/`glab`, or ask the user for the URLs. Push nothing yet.
+2. **Scaffold**: `git clone --recurse-submodules https://github.com/uxname/LiteStack <dir>`,
+   then `rm -rf .git && git init` inside it — the project starts its own history.
+3. **Repoint** submodules and remotes at the three URLs, per `.agents/DERIVE.md`. When
+   `.gitmodules` no longer points at `uxname/*`, the project is in DERIVED mode
+   (`.agents/OPERATING-MODE.md`) and nothing will ever push to the templates again.
+4. **Rename**:
+   `scripts/rename-project.sh --name <name> --display "<Brand>" --repo-owner <owner>` —
+   before installing, because it rewrites the Go module path and package names.
+5. **Install and verify**: `scripts/setup.sh` — one command; it checks the toolchain, writes
+   both `.env` files and runs `scripts/doctor.sh`. Fix any contract mismatch it reports;
+   these fail silently at runtime otherwise.
+6. **Run it**: `cd backend && task start:dev`, `cd frontend && npm run start:dev`. It worked
+   when `http://localhost:3000` and `http://localhost:4000/readyz` both answer.
+7. **Commit and push** with the meta **`/commit`** skill. Confirm with the user first — this
+   is the project's first push.
 
-## Step 1: Create the three remote repos
+## Auth, and the one thing to say at hand-off
 
-The new project needs its own **meta**, **backend**, and **frontend** repos on the team's host.
-Create them as empty repos (no README), via `gh`/`glab` if available, otherwise ask the user to
-create them and paste the URLs. You need three URLs:
+Local dev runs with `OIDC_MOCK_ENABLED=true` against a shared public dev Logto tenant. Real
+auth means `OIDC_MOCK_ENABLED=false` and the backend's `OIDC_ISSUER`/`OIDC_JWKS_URI`/
+`OIDC_AUDIENCE` matching the frontend's `VITE_OIDC_AUTHORITY`/`VITE_OIDC_API_RESOURCE` —
+same tenant, same API resource. Tell the user it must be swapped before production.
 
-- `<meta-repo-url>`, `<backend-repo-url>`, `<frontend-repo-url>`.
+## Never
 
-Do not push anything yet.
-
-## Step 2: Scaffold the meta-repo
-
-Clone the canonical LiteStack meta with submodules into the target directory, then detach from
-the upstream history so it becomes the team's own project:
-
-```bash
-git clone --recurse-submodules https://github.com/uxname/LiteStack <target-dir>
-cd <target-dir>
-rm -rf .git && git init        # drop template history; start the project's own
-```
-
-## Step 3: Repoint submodules + remotes to the team repos (DERIVED mode)
-
-```bash
-git config -f .gitmodules submodule.liteend-go.url <backend-repo-url>
-git config -f .gitmodules submodule.litefront.url  <frontend-repo-url>
-git submodule sync
-( cd backend  && git remote set-url origin <backend-repo-url> )
-( cd frontend && git remote set-url origin <frontend-repo-url> )
-git remote add origin <meta-repo-url>
-```
-
-After this, `.gitmodules` URLs point at the team's repos → the project is in **DERIVED mode**
-(see root `.agents/OPERATING-MODE.md`). All future pushes go to the team's repos, never to
-`uxname/*`.
-
-## Step 4: Rename the template identity
-
-```bash
-scripts/rename-project.sh --name <name> --display "<Brand>" --repo-owner <owner>
-```
-
-This rewrites the template identity (`liteend-go`/`litefront`/`LiteFront`) across the backend
-`go.mod` module path + docker-compose network, the frontend package.json, theme store key, PWA
-manifest, page titles, and demo links. Run it BEFORE installing.
-
-## Step 5: Install + environment
-
-```bash
-scripts/setup.sh        # submodules + binary fix + go mod download (backend) + npm install (frontend)
-cp backend/.env.example  backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-The backend (liteend-go) ships `OIDC_MOCK_ENABLED=true` — local dev bypasses OIDC out of the
-box; the frontend `.env.example` points at the shared public dev Logto tenant. For real auth,
-set backend `OIDC_MOCK_ENABLED=false` and match `OIDC_ISSUER`/`OIDC_JWKS_URI`/`OIDC_AUDIENCE`
-(backend) to `VITE_OIDC_AUTHORITY`/`VITE_OIDC_API_RESOURCE` (frontend) — same Logto tenant +
-API resource. See `docs/ENV-CONTRACT.md` (the two `.env.example` defaults intentionally diverge).
-
-## Step 6: Verify the env contract
-
-```bash
-scripts/doctor.sh        # OIDC audience/tenant, CORS, GraphQL port, port collisions
-```
-
-Fix any mismatch before proceeding — these fail silently at runtime otherwise.
-
-## Step 7: Bring up the backend, then sync the frontend contract
-
-The frontend generates GraphQL types from the backend's **live** schema — backend must be up
-first.
-
-```bash
-( cd backend && task start:dev & )          # brings up Docker db+redis+object store, runs goose migrations, serves
-# wait for it, then verify GraphQL actually answers (not just /readyz):
-curl -s -X POST localhost:4000/graphql -H 'content-type: application/json' \
-     -d '{"query":"{ __typename }"}'      # expect {"data":{"__typename":"Query"}}
-scripts/doctor.sh --reachable               # confirms the endpoint before codegen
-# `npm run gen` is NOT a first-run step — types are committed; run it after editing backend/internal/graph/schema.graphqls
-```
-
-## Step 8: First commit + push (DERIVED mode)
-
-Use the meta **`/commit`** skill — it commits each submodule, records the pointers, and pushes
-to the team's repos (DERIVED mode). Confirm with the user before the first push.
-
-## Step 9: Hand-off checklist
-
-Report to the user:
-
-- [ ] Three repos created and pushed (meta + backend + frontend).
-- [ ] Identity renamed (`grep -rn 'liteend-go\|litefront'` finds only historical docs).
-- [ ] `scripts/doctor.sh` passes (or OIDC mismatch is expected — backend in mock mode).
-- [ ] Backend runs (`task start:dev`); `/graphql` answers; frontend `npm run gen` succeeded.
-- [ ] Auth: backend in mock mode or swapped to the team's Logto tenant (before production).
-
-## What NOT to do
-
-- Never leave `.gitmodules` pointing at `uxname/*` for a real product (that's TEMPLATE mode —
-  you would push the team's product into the public templates).
-- Never run `npm run gen` before the backend `/graphql` endpoint answers.
-- Never commit `.env` (secrets) — only `.env.example` is tracked.
+- Leave `.gitmodules` pointing at `uxname/*` for a real product — that pushes the team's
+  product into the public templates.
+- Commit a `.env`. Only `.env.example` is tracked.
