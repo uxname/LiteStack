@@ -59,6 +59,9 @@ fi
 # Machine identity (exact, anchored where ambiguous):
 OPS=(
   "frontend/package.json|\"name\": \"litefront\"|\"name\": \"$NAME\""
+  # The lock carries the name too, and the first run uses `npm ci`, which — unlike
+  # `npm install` — will not quietly align it.
+  "frontend/package-lock.json|\"name\": \"litefront\"|\"name\": \"$NAME\""
   # Docker identity. Derived from (retro rule — grep the WHOLE submodules, never eyeball):
   #   grep -rn 'liteend\|litefront' backend frontend \
   #     --include='*.yml' --include='*.yaml' --include='*.json' -l
@@ -82,26 +85,17 @@ OPS=(
   "frontend/src/routes/__root.tsx|litefront-theme|$NAME-theme"
   "frontend/tests/e2e/agent-screens.spec.ts|litefront-theme|$NAME-theme"
 )
-# Brand identity (token replacement preserves surrounding text).
-# Keep this list in step with a grep over the WHOLE submodule, not just src/:
-#   grep -rln LiteFront frontend --exclude-dir={node_modules,.output,.nitro,dist,src/generated}
-# Narrowing that scope is how entries keep getting missed — first frontend/tests
-# (three of the files below are tests that assert the brand, so a miss leaves a
-# derived project with a failing `npm run check` or `verify:push`), then
-# .github/logo.svg. Anything with a brand token belongs here even if nothing
-# imports it.
-BRAND_FILES=(
-  "frontend/vite.config.ts"
-  "frontend/src/routes/__root.tsx"
-  "frontend/src/routes/index.tsx"
-  "frontend/src/routes/account.tsx"
-  "frontend/src/widgets/Header/ui/index.tsx"
-  "frontend/src/widgets/Header/ui/index.test.tsx"
-  "frontend/src/pages/home/ui/index.tsx"
-  "frontend/tests/e2e/pages/home.spec.ts"
-  # The <title> inside the repo logo, added so biome's SVG a11y rule passes.
-  "frontend/.github/logo.svg"
-)
+# Brand identity (token replacement preserves surrounding text). The list is SEARCHED,
+# not kept by hand: a fixed list drifts, and every drift so far left a brand string in a
+# derived project — first frontend/tests (three of them assert the brand, so a miss makes
+# `npm run check` or `verify:push` fail), then .github/logo.svg. `generated` is excluded
+# here and only here: generated frontend types carry no brand word, while the Go module
+# rewrite below must NOT skip generated files.
+# `git grep` and not `grep -r`: it searches tracked files only, so build output
+# (coverage/, storybook-build/, .output/ …) is excluded without a directory list that
+# would drift exactly the way the file list used to.
+mapfile -t BRAND_FILES < <(git -C "$ROOT/frontend" grep -lF LiteFront -- . ':!src/generated' \
+  | sed 's|^|frontend/|' | sort -u)
 for f in "${BRAND_FILES[@]}"; do
   OPS+=("$f|LiteFront|$DISPLAY")
 done
@@ -127,7 +121,7 @@ changed=0
 for op in "${OPS[@]}"; do
   IFS='|' read -r file from to <<< "$op"
   path="$ROOT/$file"
-  [[ -f "$path" ]] || { echo "skip (missing): $file"; continue; }
+  [[ -f "$path" ]] || continue
 
   if [[ "$DRY_RUN" == 1 ]]; then
     matches="$(grep -nF "$from" "$path" || true)"
