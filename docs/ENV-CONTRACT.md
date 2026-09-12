@@ -93,15 +93,8 @@ so it needs two things: that **variable present in its environment**, and the ba
 (`npm run gen` loads it) — `VITE_GRAPHQL_API_URL=… npm run gen` works just as well. With the
 variable unset, the address collapses to the string `undefined` and codegen fails with
 `Failed to load schema from undefined` — a message that never says "variable", so check the
-variable before you suspect the backend. Correct order for a fresh project:
-
-1. Configure both sides — export the variables, or copy each `.env.example` to `.env`
-   (`.env.example` is the documented list of every variable, either way).
-2. `scripts/doctor.sh` — confirm the pairs above agree.
-3. Start the backend (`cd backend && task start:dev` — brings up Docker db+redis+object store,
-   runs goose migrations automatically at startup, then serves with hot-reload).
-4. Verify GraphQL: `curl -s -X POST localhost:<BE_PORT>/graphql -H 'content-type: application/json' -d '{"query":"{ __typename }"}'`.
-5. `cd frontend && npm run gen` (now the schema is reachable).
+variable before you suspect the backend. The first-run path is in the root
+[README](../README.md) → "Running the projects"; `npm run gen` is a step after the schema changes, not a step of the first run.
 
 ## OIDC / Logto note
 

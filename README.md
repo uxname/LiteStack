@@ -117,8 +117,8 @@ scripts/doctor.sh
   the variables) → `task start:dev` (brings up Docker db+redis+object store, runs goose
   migrations at startup, hot-reload; GraphQL at `:4000/graphql` + gqlgen playground).
   First-time full onboarding: `task setup`.
-- **Frontend** (`frontend/`): configure the same way → `npm run gen` (backend must be up)
-  → `npm run start:dev` (serves at `:3000`).
+- **Frontend** (`frontend/`): configure the same way → `npm run start:dev` (serves at `:3000`).
+  GraphQL types are already in the repo (`frontend/src/generated/`); `npm run gen` is only needed after editing `backend/internal/graph/schema.graphqls`.
 - **Note on `PORT`**: it is the only variable name both sides use, so export it per side —
   it belongs to whichever app you are starting.
 - **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS,

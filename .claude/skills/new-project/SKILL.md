@@ -100,7 +100,7 @@ first.
 curl -s -X POST localhost:4000/graphql -H 'content-type: application/json' \
      -d '{"query":"{ __typename }"}'      # expect {"data":{"__typename":"Query"}}
 scripts/doctor.sh --reachable               # confirms the endpoint before codegen
-( cd frontend && npm run gen )              # generate types from the live schema
+# `npm run gen` is NOT a first-run step — types are committed; run it after editing backend/internal/graph/schema.graphqls
 ```
 
 ## Step 8: First commit + push (DERIVED mode)
