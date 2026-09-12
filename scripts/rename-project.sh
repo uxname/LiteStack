@@ -145,7 +145,7 @@ done
 # Backend Go module path (tree-wide; only when --repo-owner is provided). The Go module
 # path is the machine identity of the backend (liteend-go) — it prefixes every internal
 # import, so it must be rewritten across go.mod and all *.go, not per-file. The backend
-# *.yml configs reference it too (.golangci.yml depguard/gci, gqlgen.yml model mapping,
+# *.yml configs reference it too (.golangci.yml gci, gqlgen.yml model mapping,
 # .testcoverage.yml excludes, Taskfile.yml PKG) — miss those and a derived project's
 # lint/codegen/coverage gates break on the first run.
 if [[ -n "$REPO_OWNER" ]]; then

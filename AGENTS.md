@@ -63,7 +63,7 @@ export the variables: both are supported, see
 
 1. **One gate per side, and it is not optional**: `task check` in `backend/`,
    `npm run check` in `frontend/`, and the meta-repo has its own small one —
-   `npm run scale:validate` + `npm run likec4:validate` + `npm run secrets`
+   `npm run likec4:validate` + `npm run secrets`
    (gitleaks over the staged diff, skipped when not installed). **There is no CI** —
    every gate lives in a git hook, so `--no-verify` has nothing behind it.
 2. **Tests are non-optional on both sides**, and coverage floors are machine-enforced.
