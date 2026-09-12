@@ -2,12 +2,11 @@
 #
 # doctor.sh — verify the backend ↔ frontend env contract (docs/ENV-CONTRACT.md).
 #
-# Reads each value the way the apps read it: an exported environment variable
-# first, then that side's .env when the file exists. A .env is OPTIONAL — a
-# fully exported environment is a supported setup (docs/ENV-CONTRACT.md), and
-# both are checked here with the same strictness. A value found in neither place
-# is reported as unset, never borrowed from .env.example: a green check against
-# a file nothing reads would describe a configuration nothing runs with.
+# Reads each value the way the apps do: exported environment first, then that side's
+# .env when it exists — a .env is OPTIONAL, and both routes are checked with the same
+# strictness. A value in neither place is reported unset, never borrowed from
+# .env.example: a green check against a file nothing reads would describe a
+# configuration nothing runs with.
 #
 # Because an env-var-only setup gives each side its OWN environment, run this
 # where both are visible — or from a shell that exports both sides' variables.
@@ -25,12 +24,9 @@ PROBE=0
 [[ "${1:-}" == "--reachable" ]] && PROBE=1
 
 # fileval <file> <KEY>: value of KEY in an .env file, last wins, quotes + inline
-# comments stripped. Prints nothing when the file or the key is absent — that is
-# a normal outcome this script is built to report, so it must NOT be an error.
-# Without the trailing `|| true`, grep's exit 1 propagates through `pipefail`
-# into `VAR="$(fileval …)"` and `set -e` kills the checker mid-run: a missing key
-# produced no diagnostic at all, which is the opposite of what an env doctor is
-# for.
+# comments stripped. The trailing `|| true` is load-bearing: without it grep's exit 1
+# rides `pipefail` into `VAR="$(fileval …)"` and `set -e` kills the checker mid-run —
+# a missing key then produced no diagnostic at all, the opposite of an env doctor.
 fileval() {
   [[ -f "$1" ]] || return 0
   grep -E "^[[:space:]]*$2=" "$1" 2>/dev/null | tail -1 \
@@ -41,10 +37,10 @@ fileval() {
 # val <side> <KEY>: the value that side's app would actually see, and where it
 # came from (in SRC, for the report).
 #
-# The frontend's PORT is the one name both sides use, so it can never be told
-# apart in a shared environment. It is not read from there at all: the
-# frontend's origin is VITE_BASE_URL — the address the browser really uses, and
-# the one CORS is checked against — so its port is taken from that.
+# The frontend's PORT is the one name both sides use, so it can never be told apart in
+# a shared environment. It is not read from there at all: the frontend's origin is
+# VITE_BASE_URL — the address the browser really uses, and the one CORS is checked
+# against — so its port comes from that.
 val() {
   local side="$1" key="$2" v=""
   if [[ "$side" == frontend && "$key" == PORT ]]; then
@@ -104,10 +100,8 @@ BE_ISS="$(val backend OIDC_ISSUER)"
 BE_CORS="$(val backend CORS_ORIGIN)"
 BE_MOCK="$(val backend OIDC_MOCK_ENABLED)"
 
-# Storage: two addresses on purpose. S3_ENDPOINT is where the APP connects (inside
-# the container network); S3_PUBLIC_BASE_URL is the prefix the BROWSER resolves, and
-# it is stored verbatim in profiles.avatar_url — a typo here is permanent, so it is
-# worth a hard check rather than a discovery by a user looking at a broken image.
+# S3_ENDPOINT is where the APP connects; S3_PUBLIC_BASE_URL is what the BROWSER
+# resolves, and it is stored verbatim in profiles.avatar_url — a typo is permanent.
 BE_S3_PUBLIC="$(val backend S3_PUBLIC_BASE_URL)"
 BE_S3_BUCKET="$(val backend S3_BUCKET)"
 # Same default as internal/config: an unset S3_BUCKET means "uploads".
@@ -164,11 +158,9 @@ else
   fail "frontend and backend PORT collide ($FE_PORT / $BE_PORT)"
 fi
 
-# 6. S3_PUBLIC_BASE_URL — the one value nothing else can catch.
-# The app only concatenates it with an object key, so a wrong prefix produces a link
-# that is syntactically fine and dead, and the link is already in the database by the
-# time anyone notices. Three things are mechanically checkable, and all three are the
-# mistakes people actually make.
+# 6. S3_PUBLIC_BASE_URL — the one value nothing else can catch: the app only
+# concatenates it with an object key, so a wrong prefix yields a link that is
+# syntactically fine, dead, and already in the database. Three checks follow.
 if [[ -z "$BE_S3_PUBLIC" ]]; then
   fail "S3_PUBLIC_BASE_URL is not set — the backend refuses to start without it (see backend/.env.example)"
 else
@@ -235,16 +227,6 @@ if [[ "$PROBE" == 1 ]]; then
   else
     warn "curl not found — skipped reachability probe"
   fi
-fi
-
-# 8. Multi-copy stand (scale/) — pointers, not checks. Its config files are gated on
-# commit (`npm run scale:validate`, wired in lefthook.yml) and the stand itself is
-# started by hand, so there is nothing here for this script to verify.
-echo
-echo "Scale stand (scale/)"
-echo "  validate its config: npm run scale:validate"
-if [[ -f "$ROOT/scripts/scale-check.sh" ]]; then
-  echo "  run the scenarios:   start the stand yourself, then scripts/scale-check.sh"
 fi
 
 echo
