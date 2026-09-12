@@ -11,10 +11,13 @@ A derived product is **three repos** owned by the team: meta + backend + fronten
   Do **not** have each developer fork their own meta; the submodule pointers are shared state
   and per-dev forks make them diverge.
 - Developers clone with `--recurse-submodules`, then run `scripts/setup.sh`.
-- Work happens on **branches + PRs** in each repo (meta and/or submodules), not on `master`.
+- Work happens on `master` in each repo; the pre-commit and pre-push hooks are the
+  guarantee, not review. In a derived product's team branches and pull requests are a
+  **recommendation** — nothing in the tooling assumes them.
 
-Forking is only for the **templates** themselves (`uxname/*`): to contribute a boilerplate
-improvement upstream, branch the template, PR it, then bump the pointer (TEMPLATE mode).
+Forking is only for the **templates** themselves (`uxname/*`): a boilerplate improvement
+goes to the template's `master`, then the pointer moves. An outside contributor without
+push rights opens a pull request instead.
 
 ## Creating the product
 
@@ -22,19 +25,12 @@ Use the **`new-project`** skill (it drives `scripts/rename-project.sh`, `setup.s
 It produces the meta+submodules shape in DERIVED mode, repointed at the team's repos. See the
 skill and [`../.agents/DERIVE.md`](../.agents/DERIVE.md).
 
-## Branch / PR flow (per repo)
+## A cross-repo change, in order
 
-Because backend and frontend are separate git repos, a cross-cutting change is several PRs:
-
-1. Branch in the submodule(s) that change; open a PR there; merge after review (the
-   quality gates run in that submodule's git hooks — there is no CI).
-2. In the meta-repo, branch, bump the submodule pointer(s) to the merged commits, open a
-   meta PR. **Never** point the meta at an unmerged/unpushed submodule commit.
-3. Use the meta **`/commit`** skill — it enforces submodule-first ordering and the right push
-   targets for the operating mode.
-
-A change touching both sides: backend PR first (the frontend generates types from the live
-backend schema), then frontend PR, then the meta pointer bump. See the `full-stack-feature` skill.
+A change that touches a submodule is two commits in two repositories: commit and
+**push** in the submodule, then bump that pointer in the meta-repo. **Never** point
+the meta at a submodule commit that is not pushed — on someone else's clone the
+change simply is not there. The meta **`/commit`** skill does this ordering for you.
 
 ## Quality gates (no CI)
 

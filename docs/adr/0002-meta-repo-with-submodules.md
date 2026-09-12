@@ -33,7 +33,7 @@ the cross-project skills, the operating mode.
 
 - Each side can be adopted alone, and a derived product swaps both remotes without
   rewriting history.
-- **A cross-cutting change is three commits and several PRs** (`docs/TEAM.md`), and the
+- **A cross-cutting change is three commits in three repositories** (`docs/TEAM.md`), and the
   submodule pointers must be recorded in the meta-repo or the change is invisible to
   anyone who clones. The meta-repo accepts this risk explicitly; the `commit` skill
   exists to make the sequence mechanical.

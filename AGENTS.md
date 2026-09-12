@@ -61,7 +61,7 @@ mistakes become tomorrow's rules.
 | Start a real product from this template | [.agents/DERIVE.md](./.agents/DERIVE.md) |
 | Which env vars must match across sides | [docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md) |
 | Deploy it: local Docker, Dokploy production, registry images | [docs/DEPLOY.md](./docs/DEPLOY.md) |
-| Team process: repo model, branch/PR flow, gates | [docs/TEAM.md](./docs/TEAM.md) |
+| Team process: repo model, commit flow, gates | [docs/TEAM.md](./docs/TEAM.md) |
 | **Why** something is the way it is — repo topology, no CI, living diagrams | [docs/adr/](./docs/adr/) |
 | "See" what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
 | Triage a failure from the logs — which line to grep, how the two sides join | [backend/docs/DEBUGGING.md](./backend/docs/DEBUGGING.md) + the frontend file above |
