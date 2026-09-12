@@ -82,6 +82,5 @@ Consequences for contributors:
 ## Onboarding a new developer (checklist)
 
 1. `git clone --recurse-submodules <meta-repo-url> && cd <dir>`
-2. `scripts/setup.sh`
-3. Copy `.env.example` → `.env` in each submodule; `scripts/doctor.sh` must pass.
-4. Read `AGENTS.md`, `backend/AGENTS.md`, `frontend/AGENTS.md`, and `docs/retro/*`.
+2. `scripts/setup.sh` — one command: toolchain, submodules, both `.env` files, contract check.
+3. Both pages answer: `http://localhost:3000` and `http://localhost:4000/readyz`.
