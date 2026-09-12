@@ -8,13 +8,11 @@ are **separate git repositories** (submodules), a meta-level commit is a few ord
 not one `git commit`. Get the order right or the meta-repo will point at commits that were
 never pushed.
 
-## Step 0: Write the session retrospective (mandatory)
+## Step 0: Write a retrospective — only if the session earned one
 
-Before anything else, run the **`/retro` skill** to record what went badly this session into
-`docs/retro/`. This is the project's mistake-memory that future agents read before touching
-code (root `AGENTS.md` → START HERE). Skip the file write **only** if the session was
-genuinely clean — but always run the skill so that judgement is made deliberately, not by
-omission. The retro file is a meta-repo file; it gets staged and committed in Step 4–5 below.
+Run the **`/retro` skill** only if something actually went wrong: a command failed, a
+change had to be rolled back, or the approach changed mid-way. A one-file documentation
+fix does not need one. The retro file is a meta-repo file; it gets staged in Step 4–5.
 
 ## Step 1: Detect the operating mode
 
