@@ -1,22 +1,19 @@
 #!/usr/bin/env bash
 #
-# setup.sh — one-shot environment setup for a fresh LiteStack clone.
+# setup.sh — the one command that takes a fresh LiteStack clone to a runnable state.
+# Idempotent. It walks the whole path and stops at the first step that fails, saying
+# what is wrong: toolchain check (git, docker >= 27.4, go, task, node >= 24.15.0) ->
+# submodules -> an .env per side (`cp -n`, never overwrites) -> scripts/doctor.sh ->
+# `task setup` in backend -> `npm ci` in frontend -> `npm install` at the meta root.
+# Then it prints the two commands left for a human to type.
 #
-# Idempotent: safe to re-run. Replaces the manual steps in README.md.
-#   1. init/update submodules
-#   2. fetch deps: `go mod download` in backend (Go), `npm install` in frontend
-#      and at the meta root (unless --no-install)
-#
-# Note: this only fetches dependencies. Full backend bring-up (env, hooks, codegen,
-# DB+Redis, migrations) is `cd backend && task setup` — it needs Docker, so it is not
-# run here. See backend/AGENTS.md.
-#
-# Usage: scripts/setup.sh [--no-install]
+# Usage: scripts/setup.sh [--no-install]     --no-install: skip the three installs
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+src="${BASH_SOURCE[0]}"
+[[ "$src" == */* ]] || src="./$src"
+cd "${src%/*}/.."
 
 DO_INSTALL=1
 for arg in "$@"; do
@@ -28,22 +25,57 @@ for arg in "$@"; do
 done
 
 step() { printf '\n\033[36m==> %s\033[0m\n' "$1"; }
+# ver_ge HAVE MIN — true when dotted-numeric HAVE is at least MIN.
+ver_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" == "$2" ]]; }
+
+step "Toolchain"
+# The same minimums stand in README.md ("What you need"). Sources of truth: Go —
+# backend/go.mod, Node — frontend/package.json "engines", Docker — the `type: image`
+# mount the stand needs (backend/.agents/OPERATIONS.md). All gaps reported at once.
+TASK=task
+missing=()
+command -v git >/dev/null || missing+=("git")
+command -v go  >/dev/null || missing+=("go (1.27+)")
+command -v task >/dev/null || { TASK=go-task; command -v go-task >/dev/null || missing+=("task (on Arch: go-task)"); }
+if ! command -v node >/dev/null; then missing+=("node (>= 24.15.0)")
+elif ! ver_ge "$(node -v | tr -d v)" 24.15.0; then missing+=("node >= 24.15.0 — found $(node -v)"); fi
+if ! command -v docker >/dev/null; then missing+=("docker (Engine >= 27.4)")
+elif ! ver_ge "$(docker --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 27.4; then
+  missing+=("docker Engine >= 27.4 — found $(docker --version)"); fi
+if ((${#missing[@]})); then
+  echo "install these first, then re-run scripts/setup.sh:" >&2
+  printf '  - %s\n' "${missing[@]}" >&2
+  exit 1
+fi
+echo "  ok"
 
 step "Submodules: init + update"
 git submodule update --init --recursive
 
+step "Env files (existing ones are kept)"
+cp -n backend/.env.example backend/.env
+cp -n frontend/.env.example frontend/.env
+
+step "Env contract"
+scripts/doctor.sh
+
 if [[ "$DO_INSTALL" == 1 ]]; then
-  step "Backend (Go): go mod download"
-  ( cd backend && go mod download )
-  step "Frontend: npm install"
-  ( cd frontend && npm install )
-  step "Meta: npm install (LikeC4 CLI)"
+  step "Backend: $TASK setup"
+  ( cd backend && "$TASK" setup )
+  step "Frontend: npm ci"
+  ( cd frontend && npm ci )
+  step "Meta root: npm install"
   npm install
 else
-  echo "  (skipped dependency install — --no-install)"
+  echo "  (--no-install: skipped the backend, frontend and meta installs)"
 fi
 
-step "Done"
-echo "Next: read AGENTS.md, then backend/AGENTS.md and frontend/AGENTS.md."
-echo "Backend full bring-up (Docker DB+Redis + migrations): cd backend && task setup."
-echo "For a new project (not just a clone), see the rename + new-project flow in AGENTS.md."
+step "Done — two commands left to type"
+cat <<'EOF'
+  cd backend  && task start:dev
+  cd frontend && npm run start:dev
+
+It worked when both of these answer:
+  http://localhost:3000          the frontend page
+  http://localhost:4000/readyz   {"status":"ok"}
+EOF
