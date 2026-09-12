@@ -29,6 +29,6 @@ pre-commit:
       # gitleaks over the staged diff — the commit's own content, which is what a
       # pre-commit gate should check. The submodules do the same on pre-commit and
       # add the history on pre-push; the meta-repo has no pre-push hook, so its
-      # full-history sweep stays a manual `gitleaks git .`.
-      # missing (ADR-0001 philosophy: no hard requirement).
+      # full-history sweep stays a manual `gitleaks git .`. Skips itself when gitleaks
+      # is missing (ADR-0001 philosophy: no hard requirement).
       run: npm run secrets
