@@ -111,23 +111,6 @@ cp frontend/.env.example frontend/.env
 scripts/doctor.sh
 ```
 
-### One-time fix: binary file attributes
-
-The upstream `frontend` marks some binary files (e.g. `.github/logo.png`) as text with
-`eol=lf` in its `.gitattributes`, so git corrupts them on checkout and the submodule shows
-as "modified". Override this locally (per clone — not committed) so the submodule stays
-clean:
-
-```bash
-cd frontend
-printf '%s\n' '*.png binary' '*.jpg binary' '*.gif binary' '*.ico binary' '*.webp binary' \
-  >> "$(git rev-parse --absolute-git-dir)/info/attributes"
-git checkout -- .          # restore the corrupted binaries
-cd ..
-```
-
-Then read **`AGENTS.md`** (and each sub-project's `AGENTS.md`) before working.
-
 ## Running the projects (separately)
 
 - **Backend** (`backend/`, liteend-go — Go): configure (`cp .env.example .env`, or export
