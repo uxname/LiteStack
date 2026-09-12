@@ -26,7 +26,8 @@
 # Two things it needs besides the stand: `docker`, because the rate-limit
 # scenario needs two clients with different addresses and every request from
 # this host arrives at Caddy from the same docker gateway address; and nothing
-# else — no jq, no python, no websocket CLI (see ws_send below).
+# else — no jq, no python, no websocket CLI on this host (scenario 4 runs one in a
+# throwaway container).
 #
 # It needs Docker Engine >= 27.4 for the garage-init mount (the reason is in
 # backend/.agents/OPERATIONS.md).
@@ -340,73 +341,41 @@ echo
 # ---------------------------------------------------------------------------
 # 4. A subscription opened on one copy receives what another copy published —
 #    the events travel through Redis, not through the process that served the
-#    socket.
-#
-#    The client is written by hand because there is no websocket in curl's
-#    command line and this repository is not getting a websocket dependency for
-#    one check. A client frame must be masked (RFC 6455 §5.3) but the mask key
-#    may be zero, and payload XOR 0 is the payload — so a frame is a 6-byte
-#    header and the text. Server frames are unmasked, so reading is a grep over
-#    the raw stream.
+#    socket. The client is one throwaway container: node has had a WebSocket
+#    global since 22, so nothing is installed and no frames are hand-built.
+#    `litestack-scale-net` is scale/docker-compose.yml's `networks.scale.name`;
+#    inside it backend-b answers by service name, so this addresses ONE copy.
 # ---------------------------------------------------------------------------
 echo "4. Subscriptions cross the copies"
 NONCE="scale-check-$$-$RANDOM"
-if ! exec 3<>"/dev/tcp/127.0.0.1/$BE_B_HOST_PORT"; then
-  fail "could not open a socket to backend copy B on port $BE_B_HOST_PORT"
-else
-  # Sec-WebSocket-Key is any 16 random bytes, base64'd (RFC 6455 §4.1). The server's
-  # Accept hash is never read back here, so a fresh key per run is fine — and computing
-  # it keeps a static base64 blob that a secret scanner mistakes for a credential out
-  # of the source.
-  ws_key=$(head -c 16 /dev/urandom | base64)
-  printf 'GET /graphql HTTP/1.1\r\nHost: 127.0.0.1:%s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: graphql-transport-ws\r\n\r\n' \
-    "$BE_B_HOST_PORT" "$ws_key" >&3
-  cat <&3 >"$WORK/ws.raw" &
-  READER=$!
+docker run --rm --network litestack-scale-net -e SUB="$SUB" node:24-alpine node -e '
+  const s = new WebSocket("ws://backend-b:4000/graphql", "graphql-transport-ws");
+  s.onopen = () => s.send(JSON.stringify({type: "connection_init", payload: {"x-mock-sub": process.env.SUB}}));
+  s.onmessage = (e) => { console.log(e.data);
+    if (JSON.parse(e.data).type === "connection_ack")
+      s.send(JSON.stringify({id: "1", type: "subscribe", payload: {query: "subscription{profileUpdated{bio}}"}})); };
+  setTimeout(() => process.exit(0), 30000);
+' >"$WORK/ws.raw" 2>&1 &
+READER=$!
+# await <pattern> <deciseconds>: grep the printed frames until one matches
+await() { local i; for ((i = 0; i < $2; i++)); do grep -aq "$1" "$WORK/ws.raw" && return 0; sleep 0.1; done; return 1; }
 
-  ws_send() { # one text frame, zero mask; payloads here are far under the 126-byte header break
-    if [[ ${#1} -ge 126 ]]; then
-      fail "websocket payload too long for the short-frame header: ${#1} bytes"
-      return
-    fi
-    printf '\x81' >&3
-    printf "\\x$(printf %02x $((0x80 | ${#1})))\\x00\\x00\\x00\\x00" >&3
-    printf '%s' "$1" >&3
-  }
-  # await <pattern> <deciseconds>
-  await() {
-    local i
-    for ((i = 0; i < $2; i++)); do
-      grep -aq "$1" "$WORK/ws.raw" && return 0
-      sleep 0.1
-    done
-    return 1
-  }
-
-  ws_send "{\"type\":\"connection_init\",\"payload\":{\"x-mock-sub\":\"$SUB\"}}"
-  if await connection_ack 50; then
-    pass "copy B accepted a graphql-transport-ws connection"
-    ws_send '{"id":"1","type":"subscribe","payload":{"query":"subscription{profileUpdated{bio}}"}}'
-    # The resolver subscribes to Redis when this message lands; publishing before
-    # that would be a race this script would report as a broken product.
-    sleep 1
-    gql "$BE_A" "{\"query\":\"mutation(\$b:String){updateProfile(input:{bio:\$b}){bio}}\",\"variables\":{\"b\":\"$NONCE\"}}" \
-      >"$WORK/publish.json"
-    if [[ "$(field bio <"$WORK/publish.json")" != "$NONCE" ]]; then
-      fail "copy A did not publish the update: $(head -c 200 "$WORK/publish.json")"
-    elif await "$NONCE" 100; then
-      pass "the event published through copy A arrived on the socket held by copy B"
-    else
-      fail "the event published through copy A never reached copy B within 10s (subscriptions are pinned to the publishing copy)"
-    fi
+if await connection_ack 150; then
+  pass "copy B accepted a graphql-transport-ws connection"
+  sleep 1 # the resolver subscribes to Redis when `subscribe` lands; publishing sooner is a race
+  gql "$BE_A" "{\"query\":\"mutation(\$b:String){updateProfile(input:{bio:\$b}){bio}}\",\"variables\":{\"b\":\"$NONCE\"}}" >"$WORK/publish.json"
+  if [[ "$(field bio <"$WORK/publish.json")" != "$NONCE" ]]; then
+    fail "copy A did not publish the update: $(head -c 200 "$WORK/publish.json")"
+  elif await "$NONCE" 100; then
+    pass "the event published through copy A arrived on the socket held by copy B"
   else
-    fail "copy B never acknowledged the websocket connection: $(tr -d '\0' <"$WORK/ws.raw" | tail -c 120 | tr '\r\n' '  ')"
+    fail "the event published through copy A never reached copy B within 10s (subscriptions are pinned to the publishing copy)"
   fi
-
-  kill "$READER" 2>/dev/null || true
-  wait "$READER" 2>/dev/null || true
-  exec 3>&-
+else
+  fail "copy B never acknowledged the websocket connection: $(tail -c 200 "$WORK/ws.raw" | tr '\r\n' '  ')"
 fi
+kill "$READER" 2>/dev/null || true
+wait "$READER" 2>/dev/null || true
 
 echo
 if [[ "$FAIL" -gt 0 ]]; then
