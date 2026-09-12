@@ -59,6 +59,7 @@ sides:
   `backend/docs/DEBUGGING.md`.
 - **Rely on Sentry for the frontend.** It is optional by design (no DSN, no reports) and
   build-time-baked, so it cannot be the only copy. It stays as the second one.
+  *(Superseded in part by [ADR-0005](./0005-horizontal-scaling-and-runtime-frontend-config.md): `VITE_SENTRY_DSN` is read at startup, not baked into the build. The reason for keeping the server log primary — an optional DSN — still holds.)*
 - **Log every SQL query and every GraphQL variable.** The fastest way to make a log
   unreadable, and the fastest way to leak PII. Only slow/failed queries are logged, never
   their arguments; mutation variables are dropped wholesale.
