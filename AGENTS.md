@@ -24,21 +24,7 @@ component or a migration means you are in the wrong folder — go into a submodu
 
 ## 🔴 Start here
 
-### 1. Read the retrospectives — learn from past mistakes
-
-Before touching code, read every `docs/retro/*.md`. These record what went wrong in past
-sessions, each ending in a one-line **rule**. Reading them first is how you avoid
-repeating a mistake this project already paid for.
-
-**Do it in a separate thread so it doesn't bloat your working context.** Spawn a subagent
-with this instruction:
-
-> Read every file in `docs/retro/*.md` (skip `README.md` and `TEMPLATE.md`). Return ONLY
-> a deduplicated, compact list of the **Rule — do this next time** lines, grouped by area
-> (backend / frontend / meta / cross). No file dumps, no narrative — just the rules.
-
-Apply the returned rules to the work you are about to do. If `docs/retro/` has no retro
-files yet, there is nothing to read — continue.
+### 1. Read `docs/retro/*.md` — rules this project already paid for; empty in the template, so usually nothing to read
 
 ### 2. Read the sub-project's own AGENTS.md
 
