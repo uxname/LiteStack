@@ -27,9 +27,8 @@
 # this host arrives at Caddy from the same docker gateway address; and nothing
 # else — no jq, no python, no websocket CLI (see ws_send below).
 #
-# It needs Docker Engine 27.4 or newer. The Garage initializer mounts the Garage
-# binary straight out of its image (`type: image`, added in 27.4), which is the
-# only way to run that CLI: the image is built FROM scratch and has no shell.
+# It needs Docker Engine >= 27.4 for the garage-init mount (the reason is in
+# backend/.agents/OPERATIONS.md).
 #
 # It is not read-only. It uploads a 1x1 PNG and writes the stand's single mock
 # profile (avatarUrl, bio). That is what "the data is not pinned to a copy"
@@ -44,7 +43,7 @@
 set -euo pipefail
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,42p' "${BASH_SOURCE[0]}" | sed 's/^#//; s/^ //'
+  sed -n '2,41p' "${BASH_SOURCE[0]}" | sed 's/^#//; s/^ //'
   exit 0
 fi
 

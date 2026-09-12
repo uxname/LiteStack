@@ -61,10 +61,8 @@ pgweb / RedisInsight / Asynqmon behind a Caddy Basic-Auth proxy
 the first `up` — a `garage-init` container writes the cluster layout, the access
 key and the bucket — so there is no manual step after `up`.
 
-> **Requires Docker Engine 27.4 or newer.** `garage-init` mounts the Garage
-> binary straight out of the Garage image (`type: image`, added in 27.4), which
-> is the only way to run its CLI: that image is built `FROM scratch` and contains
-> no shell. On an older Engine the `up` fails on that mount.
+> **Requires Docker Engine 27.4 or newer** for the `garage-init` mount — the reason
+> is in `backend/.agents/OPERATIONS.md`.
 
 For code work prefer hot-reload: `task start:dev` (brings up Postgres, Redis and the
 Garage object store in Docker via `docker compose up -d db redis garage garage-init`,

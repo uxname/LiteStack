@@ -29,6 +29,18 @@ LiteStack/
 └── .claude/skills/  # the four cross-project skills
 ```
 
+## What you need
+
+| tool | minimum | check |
+|---|---|---|
+| git | any | `git --version` |
+| Docker Engine | 27.4 — why: `backend/.agents/OPERATIONS.md` | `docker --version` |
+| Go | 1.27 | `go version` |
+| Task | any (on Arch the binary is `go-task`) | `task --version` |
+| Node | 24.15.0 | `node -v` |
+
+`scripts/setup.sh` checks all five and names everything missing in one message.
+
 ## Getting started
 
 ```bash
