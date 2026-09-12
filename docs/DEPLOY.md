@@ -78,14 +78,8 @@ docker compose up -d      # SSR container; PORT picks the HOST port, container l
 
 or the dev server: `npm run gen` (backend must be running) → `npm run start:dev`.
 
-> **What `npm run gen` needs.** It reads the live schema from the address in
-> `VITE_GRAPHQL_API_URL`, so it needs two things: that **variable present in the
-> environment**, and the backend **reachable** at it. The `.env` file is just the
-> usual way to supply the variable (`npm run gen` loads it), not a requirement of
-> its own — `VITE_GRAPHQL_API_URL=… npm run gen` works the same. When the
-> variable is missing, the address collapses to the string `undefined` and
-> codegen fails with `Failed to load schema from undefined` — a message that
-> never says "variable", so check the variable before you suspect the backend.
+> **What `npm run gen` needs:** `VITE_GRAPHQL_API_URL` in the environment (exported, or
+> in `.env`) and the backend answering at it. The script names whichever is missing.
 
 `frontend/.env` is for local development only. It is excluded from the Docker
 build context (`.dockerignore`), so it can never end up inside an image.

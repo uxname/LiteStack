@@ -88,14 +88,10 @@ of the deployment. The full walkthrough is in [DEPLOY.md](./DEPLOY.md#running-mo
 
 ## Bootstrap order (why it matters)
 
-Frontend GraphQL codegen (`npm run gen`) reads the **live** schema from `VITE_GRAPHQL_API_URL`,
-so it needs two things: that **variable present in its environment**, and the backend
-**reachable** at that address. The `.env` file is only the usual way to supply the variable
-(`npm run gen` loads it) — `VITE_GRAPHQL_API_URL=… npm run gen` works just as well. With the
-variable unset, the address collapses to the string `undefined` and codegen fails with
-`Failed to load schema from undefined` — a message that never says "variable", so check the
-variable before you suspect the backend. The first-run path is in the root
-[README](../README.md) → "Running the projects"; `npm run gen` is a step after the schema changes, not a step of the first run.
+Frontend GraphQL codegen (`npm run gen`) needs `VITE_GRAPHQL_API_URL` in its environment
+(exported, or in `.env`) and the backend answering at it — the script says which of the
+two is missing. It is a step after the schema changes, not a step of the first run; the
+first-run path is in the root [README](../README.md) → "Running the projects".
 
 ## OIDC / Logto note
 
