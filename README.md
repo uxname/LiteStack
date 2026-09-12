@@ -12,103 +12,29 @@
 - **Two modes:** *template* (improving the boilerplate) vs *derived* (your real product) —
   they only change where you commit/push. See [`.agents/OPERATING-MODE.md`](./.agents/OPERATING-MODE.md).
 
----
-
-A full-stack **boilerplate** — in the same spirit as LiteEnd and LiteFront — that bundles
-a backend (`backend`) and a frontend (`frontend`) as git submodules, with a thin
-coordination layer (`AGENTS.md` + cross-project skills) tuned for AI coding agents.
-
-LiteStack runs nothing itself; each sub-project runs on its own. Beyond the coordination
-layer (`AGENTS.md`, the ADRs, the deploy runbook, the LikeC4 model) it carries no task or
-issue tracking, so you can manage that however you like (your own task manager,
-bmad-method, etc.).
-
 ## Layout
 
 ```
 LiteStack/
-├── AGENTS.md                       # entry point: meta-project model, cross-project rules, two-mode git
-├── CLAUDE.md                       # pointer to AGENTS.md
-├── LICENSE                         # MIT
-├── package.json                    # meta tooling: LikeC4 CLI + lefthook (devDeps), likec4:*/scale:* scripts
-├── package-lock.json
-├── lefthook.yml                    # the meta-repo's own git hook (see "Meta-repo git hook")
-├── renovate.json                   # Renovate dependency-update config
-├── .gitignore
-├── .gitmodules                     # submodule URLs (template vs derived — see OPERATING-MODE.md)
-├── .agents/                        # cross-project instruction files AGENTS.md routes to
-│   ├── CROSS-PROJECT.md
-│   ├── DERIVE.md
-│   └── OPERATING-MODE.md
-├── docs/
-│   ├── DEPLOY.md                   # deploy runbook
-│   ├── ENV-CONTRACT.md             # the cross-side env contract
-│   ├── TEAM.md                     # team process (branches, PRs, reviews)
-│   ├── adr/                        # architecture decision records (+ README.md, TEMPLATE.md)
-│   ├── retro/                      # session retrospectives (README.md + TEMPLATE.md; kept empty)
-│   └── architecture/likec4/        # the living LikeC4 model (model.c4)
-├── scripts/                        # setup.sh, doctor.sh, scale-check.sh, rename-project.sh
-├── scale/                          # local multi-copy stand: 2+2 copies behind one Caddy
-├── backend/                        # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
-├── frontend/                       # submodule → litefront (Vite · React 19 · URQL)
-└── .claude/skills/                 # the four cross-project skills
+├── AGENTS.md        # entry point for agents: the meta-project model, cross-project rules
+├── package.json     # meta tooling: LikeC4 CLI + lefthook, the likec4:*/scale:* scripts
+├── lefthook.yml     # the meta-repo's own git hook (what it runs is explained in the file)
+├── .gitmodules      # submodule URLs (template vs derived — .agents/OPERATING-MODE.md)
+├── .agents/         # the cross-project instruction files AGENTS.md routes to
+├── docs/            # TEAM.md (process), ENV-CONTRACT.md, DEPLOY.md, adr/, retro/, architecture/likec4/
+├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh
+├── scale/           # local multi-copy stand: 2+2 copies behind one Caddy
+├── backend/         # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
+├── frontend/        # submodule → litefront (Vite · React 19 · URQL)
+└── .claude/skills/  # the four cross-project skills
 ```
-
-**Instructions vs skills.** Each project has one entry point — `AGENTS.md` — holding the
-rules you must not break plus a routing table into topic files under its own `.agents/`
-directory, so an agent reads only the file its task needs. Both submodules follow that
-shape and ship **no** skills of their own.
-
-Skills are reserved for genuinely cross-project orchestration and live in
-`.claude/skills/`, visible from the meta root in both Claude Code and opencode:
-`full-stack-feature`, `commit`, `retro`, `new-project`. See [`AGENTS.md`](./AGENTS.md) →
-Skills.
-
-## Two ways to use it
-
-- **Template mode** — you're improving the LiteStack/LiteEnd/LiteFront templates.
-  Submodules point at the canonical `uxname/*` upstreams.
-- **Derived mode** — you're building a real product. Point the submodules at your own
-  repos (any git host) and commit/push everything to your project. A derived project is a
-  snapshot — it is **not** kept in sync with the upstream templates (they change too often,
-  sometimes with breaking changes).
-
-See [`.agents/OPERATING-MODE.md`](./.agents/OPERATING-MODE.md) for detection and the commit/push rules.
 
 ## Getting started
 
 ```bash
 git clone --recurse-submodules <this-repo-url>
 cd LiteStack
-scripts/setup.sh        # submodules + binary fix + npm install (idempotent)
-```
-
-`scripts/setup.sh` runs every step below in one shot (re-runnable). Flag: `--no-install`.
-The manual equivalents follow if you prefer to run them piecemeal.
-
-Already cloned without submodules?
-
-```bash
-git submodule update --init --recursive
-```
-
-Then install dependencies in each sub-project — **the two stacks differ, the backend has
-no `package.json`**:
-
-```bash
-( cd backend  && task setup )    # Go deps + git hooks + codegen + local db/redis
-( cd frontend && npm install )   # npm deps + git hooks (via postinstall)
-npm install                      # meta root: LikeC4 CLI + this repo's own git hook
-```
-
-Then configure both sides and verify the contract. `.env` is **optional** — exported
-environment variables work everywhere, `.env.example` lists every variable either way
-([docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md)). The copy-a-file route is the shortest:
-
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-scripts/doctor.sh
+scripts/setup.sh        # toolchain check, submodules, .env, deps (idempotent; --no-install)
 ```
 
 ## Running the projects (separately)
@@ -121,75 +47,33 @@ scripts/doctor.sh
   GraphQL types are already in the repo (`frontend/src/generated/`); `npm run gen` is only needed after editing `backend/internal/graph/schema.graphqls`.
 - **Note on `PORT`**: it is the only variable name both sides use, so export it per side —
   it belongs to whichever app you are starting.
+- **The multi-copy stand** (`scale/`): the product the way a server runs it with more than
+  one copy of each side — `docker compose -f scale/docker-compose.yml up -d --wait`, then
+  `scripts/scale-check.sh`. Read that script's header before you read anything into a green run.
 - **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS,
   running more than one copy of each side): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
-Cross-project value contracts (must agree across the two sides' configurations):
+## Where to look next
 
-| Frontend | Backend | Meaning |
-|---|---|---|
-| `VITE_GRAPHQL_API_URL` = `…:4000/graphql` | `PORT` = `4000` | where the SPA reaches the API |
-| `VITE_OIDC_API_RESOURCE` = `…:4000` | `OIDC_AUDIENCE` = `…:4000` | token `aud` match |
-| `VITE_BASE_URL` = `…:3000` | `CORS_ORIGIN` includes `…:3000` | CORS allow |
+| file | what it owns |
+|---|---|
+| [`AGENTS.md`](./AGENTS.md) | entry point for agents: the meta model, cross-project rules, skills |
+| [`docs/TEAM.md`](./docs/TEAM.md) | how work gets done here |
+| [`docs/ENV-CONTRACT.md`](./docs/ENV-CONTRACT.md) | every variable, and which values must agree across the two sides |
+| [`docs/DEPLOY.md`](./docs/DEPLOY.md) | the deploy runbook |
+| [`docs/adr/`](./docs/adr/) | the decisions this project already made, and why |
+| [`lefthook.yml`](./lefthook.yml) | the meta-repo's gates: what runs on pre-commit is explained in the file itself |
 
-## Meta-repo git hook
+## Two ways to use it
 
-The meta-repo has a `pre-commit` hook of its own, alongside the submodules'. It is
-installed by `npm install` at the meta root — the `prepare` script runs
-`lefthook install`, and `scripts/setup.sh` already does that for you. A clone that
-skipped the install simply has no hook, exactly as in `backend/` and `frontend/`.
+- **Template mode** — you're improving the LiteStack/LiteEnd/LiteFront templates.
+  Submodules point at the canonical `uxname/*` upstreams.
+- **Derived mode** — you're building a real product. Point the submodules at your own
+  repos (any git host) and commit/push everything to your project. A derived project is a
+  snapshot — it is **not** kept in sync with the upstream templates (they change too often,
+  sometimes with breaking changes).
 
-It runs three things, all fast and none starting anything — a commit hook has no
-business waiting on containers:
-
-- `npm run scale:validate` syntax-checks the stand below: `docker compose config -q` on
-  `scale/docker-compose.yml` and `caddy validate` on `scale/Caddyfile`. Each check skips
-  itself when its binary is missing.
-- `npm run likec4:validate` parses the architecture model, as
-  [`ADR-0003`](./docs/adr/0003-living-likec4-model.md) requires. It also fails when the
-  validator reports `Valid (0 files)` — an empty or misplaced model directory validates
-  green and would prove nothing.
-- `npm run secrets` runs `gitleaks` over the **staged diff** to catch a key or token
-  before it is committed. (The submodules scan history instead; the meta-repo scans the
-  staged diff because it has no pre-push hook behind it. A full-history sweep is a
-  manual `gitleaks git .`.) It skips itself when `gitleaks` is not installed — there is
-  no hard requirement (see [`ADR-0001`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).
-
-There is no CI behind either (see [`docs/adr/0001-no-ci-gates-live-in-git-hooks.md`](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)),
-so don't commit with `--no-verify`.
-
-## The multi-copy stand (`scale/`)
-
-`scale/` runs the whole product the way a server runs it with more than one copy of
-each side: **two backends, two frontends, one Caddy in front of them**, and the state
-they share (Postgres, Redis, and a Garage object store). It exists to answer one
-question — is any part of the product pinned to a single copy? — and
-`scripts/scale-check.sh` drives four scenarios through it: a file uploaded via one
-backend read back through the other, rate limits keyed on an address the client
-cannot choose, the page served by either frontend, and a subscription published on
-one copy arriving at a client on the other.
-
-```bash
-docker compose -f scale/docker-compose.yml up -d --wait   # builds both sides from this checkout
-scripts/scale-check.sh                                    # prints ok / not ok per check
-docker compose -f scale/docker-compose.yml down -v
-```
-
-Four things to know before you read anything into a green run:
-
-- **You start it by hand.** For the stand, the git hook only checks its config files,
-  never runs it. Bringing the stand up takes minutes on the first run (a Go build plus
-  an npm ci and a Vite build) — far too slow for a commit.
-- **It needs Docker Engine 27.4 or newer.** The Garage initializer mounts the Garage
-  binary straight out of its image (`type: image`, added in 27.4), which is the only
-  way to run that CLI: the image is built `FROM scratch` and has no shell.
-- **It is not a model of production.** It runs with `NODE_ENV=development` and mock
-  authentication, because the backend refuses to boot with mock auth in production
-  and `curl` cannot complete a real OIDC login. Never copy this stand, or that flag,
-  onto a shared host. Its *shape* — no host ports on the app containers, everything
-  through the proxy — is the part worth copying.
-- **It writes data.** It uploads a file and edits the stand's mock profile;
-  `down -v` wipes all of it.
+See [`.agents/OPERATING-MODE.md`](./.agents/OPERATING-MODE.md) for detection and the commit/push rules.
 
 ## Deriving a new project
 
