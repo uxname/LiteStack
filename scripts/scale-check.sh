@@ -13,6 +13,7 @@
 # choose, the frontend not pinned to a copy, and a subscription crossing copies.
 #
 # Usage:
+#   npm run scale:validate                                    # syntax-check its config
 #   docker compose -f scale/docker-compose.yml up -d --wait   # start it first
 #   scripts/scale-check.sh
 #   docker compose -f scale/docker-compose.yml down -v
@@ -43,7 +44,7 @@
 set -euo pipefail
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,41p' "${BASH_SOURCE[0]}" | sed 's/^#//; s/^ //'
+  sed -n '2,42p' "${BASH_SOURCE[0]}" | sed 's/^#//; s/^ //'
   exit 0
 fi
 
