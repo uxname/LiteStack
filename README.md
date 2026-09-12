@@ -51,6 +51,9 @@ scripts/setup.sh        # toolchain check, submodules, .env, deps (idempotent; -
 
 ## Running the projects (separately)
 
+**All in Docker** — no Go, Node or Task: `cd backend && cp -n .env.example .env && docker compose up -d --build`,
+then the same in `frontend/` with `docker compose up -d`. **From source**, one side at a time:
+
 - **Backend** (`backend/`, liteend-go — Go): configure (`cp .env.example .env`, or export
   the variables) → `task start:dev` (brings up Docker db+redis+object store, runs goose
   migrations at startup, hot-reload; GraphQL at `:4000/graphql` + gqlgen playground).
@@ -64,6 +67,9 @@ scripts/setup.sh        # toolchain check, submodules, .env, deps (idempotent; -
   `scripts/scale-check.sh`. Read that script's header before you read anything into a green run.
 - **Deploying** (local Docker all-in-one, Dokploy production, registry images, bare VPS,
   running more than one copy of each side): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
+
+It worked when both answer: `http://localhost:3000` — the frontend page;
+`http://localhost:4000/readyz` — `{"status":"ok"}`. If not, `scripts/doctor.sh --reachable` checks both sides and GraphQL.
 
 ## Where to look next
 
