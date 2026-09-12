@@ -80,8 +80,8 @@ of the deployment. The full walkthrough is in [DEPLOY.md](./DEPLOY.md#running-mo
 
 | Variable | Side | Rule |
 |---|---|---|
-| `DB_POOL_MAX` (default 10) | backend | Pool size of **one** copy. Sizing rule: replicas x `DB_POOL_MAX` must stay below the Postgres `max_connections` limit (default 100), leaving room for migrations, `psql` sessions and the dashboards. Over the limit, copies start failing readiness while each looks healthy on its own. |
-| `TRUSTED_PROXY_HOPS` (default 1) | backend | The number of reverse proxies actually in front of the app. The client address — the rate limiter's key — is taken that many entries from the **right** of `X-Forwarded-For`. Too high hands the caller its own key; too low puts every client in one bucket. `0` = no proxy, both forwarding headers ignored. |
+| `DB_POOL_MAX` (default 10) | backend | Pool size of **one** copy, so replicas multiply it against the Postgres `max_connections` limit. Sizing rule and failure mode: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md). |
+| `TRUSTED_PROXY_HOPS` (default 1) | backend | How many reverse proxies actually sit in front of the app — it decides which address the rate limiter keys on, and both a too-high and a too-low value break it. Why, and how to check: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md). |
 | `S3_ENDPOINT` / `S3_PUBLIC_BASE_URL` | backend | Two different addresses of the same storage: the first as the **app** sees it from inside the network, the second as the **browser** resolves it from outside, bucket name included. A file's URL is the second value plus `/` plus the object key. |
 | `S3_BUCKET` (default `uploads`) | backend | The bucket uploads go into. It is also the tail of `S3_PUBLIC_BASE_URL`: a public base whose path does not end with this name prepends that path to every object key, and every file link 404s. `scripts/doctor.sh` checks the pair. |
 | `PROXY_NETWORK` (default `dokploy-network`) | both | Name of the existing external Docker network the reverse proxy runs on. Both prod composes join it instead of publishing a host port. |

@@ -70,9 +70,9 @@ to keep in sync.
 Consequences for contributors:
 - Adding guidance? Put it in the right `.agents/*.md` and, if a new topic, add one row to
   that project's `AGENTS.md` routing table. Don't grow `AGENTS.md` itself.
-- **Don't restate a value a config file owns** (coverage floors, field limits, tool
-  versions) — point at the file. Every copied value in this repo's docs has drifted at
-  least once.
+- **Every shared value has one owner file** — every other file, of any type, points at
+  it. The owner table is in [`../.agents/CROSS-PROJECT.md`](../.agents/CROSS-PROJECT.md).
+  Every copied value in this repo has drifted at least once.
 - The repo `CLAUDE.md` is only a pointer to `AGENTS.md` — do not put unique guidance there.
 
 ## Onboarding a new developer (checklist)

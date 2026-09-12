@@ -100,5 +100,22 @@ Reading the logs: `backend/docs/DEBUGGING.md`, `frontend/.agents/OBSERVABILITY.m
 - **Run the projects separately**, each per its own `AGENTS.md`; there is no root
   orchestration. Backend: `cd backend && task start:dev` (brings up Docker
   db+redis+object store, runs migrations, hot reload). Both need their own `.env`.
-- **Values copied between a config and a doc always drift.** Prefer pointing at the file
-  that owns the number (coverage floors, field limits, tool versions) over restating it.
+- **Every shared value has exactly one owner file.** Every other file — document,
+  config, compose file, code comment — points at it instead of restating it. This is
+  not a Markdown rule: a number copied into a compose comment drifts exactly as fast.
+  Owners:
+
+  | Fact | Owner |
+  |---|---|
+  | The value of an env var | that side's `.env.example` (elsewhere: the name only, never the value) |
+  | Which values must agree across the two sides | [`docs/ENV-CONTRACT.md`](../docs/ENV-CONTRACT.md) |
+  | `DB_POOL_MAX`, `TRUSTED_PROXY_HOPS`, `PROXY_NETWORK`, `S3_*` — what they mean and how to size them | [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md) |
+  | That there is no CI, and what runs instead | [`docs/adr/0001`](../docs/adr/0001-no-ci-gates-live-in-git-hooks.md) for the decision, [`docs/TEAM.md`](../docs/TEAM.md) for the gate table. The `--no-verify` warnings in the gate files are not copies: they sit where someone reads them |
+  | What the meta-repo pre-commit hook runs | [`lefthook.yml`](../lefthook.yml) |
+  | Deploy order and targets | [`docs/DEPLOY.md`](../docs/DEPLOY.md) |
+  | Toolchain requirements and minimum versions | the root [`README.md`](../README.md) |
+  | A subscription is not a delivery guarantee | `backend/.agents/ARCHITECTURE.md` *(to be written — backlog v23.12)* |
+  | What session replay does and does not record | `frontend/.agents/OBSERVABILITY.md` *(to be written — backlog v23.4)* |
+
+  `S3_*` is on this list only while the public file path exists: backlog v23.5 removes it,
+  and the `S3_PUBLIC_BASE_URL` checks go with it.
