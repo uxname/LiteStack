@@ -77,5 +77,5 @@ cat <<'EOF'
 
 It worked when both of these answer:
   http://localhost:3000          the frontend page
-  http://localhost:4000/readyz   {"status":"ok"}
+  http://localhost:4000/readyz   a body starting {"status":"ok"
 EOF

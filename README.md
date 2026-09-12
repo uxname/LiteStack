@@ -69,7 +69,7 @@ then the same in `frontend/` with `docker compose up -d`. **From source**, one s
   running more than one copy of each side): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
 It worked when both answer: `http://localhost:3000` — the frontend page;
-`http://localhost:4000/readyz` — `{"status":"ok"}`. If not, `scripts/doctor.sh --reachable` checks both sides and GraphQL.
+`http://localhost:4000/readyz` — a body starting `{"status":"ok"`. If not, `scripts/doctor.sh --reachable` checks both sides and GraphQL.
 
 ## Where to look next
 
