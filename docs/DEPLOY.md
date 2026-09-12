@@ -111,15 +111,8 @@ answers a failed **liveness** probe by killing the container. If liveness pinged
 the database, one database blip would restart the entire fleet at once, instead
 of briefly draining traffic away from it.
 
-**Why only the dependencies decide readiness.** A 503 here means the proxy stops
-sending this copy traffic, so anything that can answer 503 has to be something
-that genuinely makes the copy unusable. The heap is not: the container is capped
-at 512M, every request buffers its body up to 10 MiB, and the reading is taken at
-150 MB — so an ordinary traffic spike crosses it while Postgres and Redis are
-perfectly fine. And since every copy buffers the same way, the same spike crosses
-it on all of them at once: they would all drop out of rotation together, turning
-"slow" into "down". A copy that really is leaking memory is liveness' problem —
-a restart — not readiness'. So the heap is reported and never judged.
+**Why only the dependencies decide readiness**, and why the heap reading is reported but
+never judged: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md).
 
 ## Running more than one copy
 
@@ -164,135 +157,14 @@ one, on its own, looks perfectly healthy.
 
 ### 3. The proxy must APPEND `X-Forwarded-For`, and `TRUSTED_PROXY_HOPS` must match it
 
-The client's address is taken from `X-Forwarded-For`, counting
-`TRUSTED_PROXY_HOPS` entries **from the right**. That address is the rate
-limiter's key and the `uploader_ip` recorded with every upload, so it has to be
-a value the caller could not have chosen.
+The client's address — the rate limiter's key, and the `uploader_ip` stored with every
+upload — is read `TRUSTED_PROXY_HOPS` entries from the **right** of `X-Forwarded-For`.
+That is a requirement on your proxy, not a property of the header: a proxy that forwards
+the request untouched appends nothing, and the app then reads whatever the caller typed.
 
-**Only your proxy can make that true.** `X-Forwarded-For` is an ordinary
-header: the caller writes whatever it likes, a proxy on the way is *supposed to*
-**append** its own entry, and the rightmost entries are trustworthy *only
-because a proxy put them there*. The application cannot check that — a hop count sees a list of
-addresses, never who wrote which. So if the proxy in front of the app does not
-append the header, the app reads the caller's own value: one forged address per
-request is one fresh rate-limit bucket per request, and a forged `uploader_ip`
-in the database. Nothing in the app can detect it; the requirement is on the
-proxy, and it is not optional.
-
-#### nginx appends nothing unless you tell it to
-
-A bare `proxy_pass` forwards the caller's `X-Forwarded-For` and `X-Real-IP`
-through untouched — which is exactly the silent-hole case above. The two
-`proxy_set_header` lines are what make the counting work:
-
-```nginx
-location / {
-    proxy_pass http://backend:4000;
-
-    # $proxy_add_x_forwarded_for = what the caller sent, plus the address the
-    # connection actually came from. That appended entry is the one the app
-    # counts to, so a request carrying "X-Forwarded-For: 9.9.9.9" arrives as
-    # "9.9.9.9, <real address>" and TRUSTED_PROXY_HOPS=1 reads the real one.
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    # $remote_addr OVERWRITES X-Real-IP, so a forged one cannot survive the hop
-    # (see the known limit at the end of this section).
-    proxy_set_header X-Real-IP       $remote_addr;
-
-    proxy_set_header Host $host;
-}
-```
-
-#### Caddy does the opposite: it replaces
-
-Out of the box Caddy **discards** a client-sent `X-Forwarded-For` and writes the
-peer address instead. One entry, nothing forged, `TRUSTED_PROXY_HOPS=1` correct.
-
-That changes the moment you add `trusted_proxies`: for requests coming from a
-listed range Caddy keeps what arrived and appends to it, so every trusted hop is
-one more entry to count. `scale/Caddyfile` in this repo sets `trusted_proxies
-static private_ranges` deliberately — the stand has to be able to push a forged
-header *through* the proxy to test the counting — and says so in place. That
-line belongs to a loopback stand and nowhere else.
-
-Other proxies each have their own default — HAProxy, for one, writes no
-`X-Forwarded-For` at all until `option forwardfor` is set. So whatever sits in
-front, check it rather than trust a paragraph:
-
-#### Check it in one request
-
-`LOG_LEVEL=info` (the default) writes an `http_request` line for every request,
-and its `remote` field is the address the app settled on. So ask the app:
-
-```bash
-# Through your public entry point, from anywhere. 9.9.9.9 stands in for any
-# address you do not own.
-curl -s -o /dev/null -H 'X-Forwarded-For: 9.9.9.9' https://api.example.com/livez
-
-# Then read the line that request just wrote:
-docker compose -f docker-compose.prod.yml logs --tail=5 app | grep http_request
-```
-
-| `remote` in that line | Verdict |
-|---|---|
-| your own public address | Correct: the proxy appended and the hop count matches. |
-| `9.9.9.9` | **Broken and exploitable.** The proxy is not appending. Fix the proxy — no hop count can repair this. |
-| the proxy's own address | `TRUSTED_PROXY_HOPS` is too low, so every client shares one bucket. |
-
-The limiter itself gives the same answer from the other end: its Redis key *is*
-the address it counted.
-
-```bash
-# rate:rl:<ip>, or rate:rl:auth:<ip> for /graphql and /upload
-redis-cli --scan --pattern 'rate:rl:*'
-```
-
-A `rate:rl:9.9.9.9` key means the forged value bought its own bucket.
-
-#### Counting the hops
-
-The default of `1` is one proxy — your own Caddy, Traefik or nginx. **Two is a
-realistic number**: a cloud load balancer or CDN in front of your own proxy adds
-a hop, and so does a corporate egress proxy. `0` means there is no proxy at all,
-and then both `X-Forwarded-For` and `X-Real-IP` are ignored entirely, since
-nobody but the caller could have written them.
-
-Both mistakes are silent — nothing logs, nothing 500s:
-
-- **Too high.** The caller can pad the header with addresses of its own until the
-  count reaches back into the part it wrote, so it picks its own rate-limit key
-  and gets a fresh bucket per forged value. This is the dangerous direction: it
-  gives the limit away.
-- **Too low.** You end up reading an address one of your own proxies wrote about
-  another proxy, which is the same value for everyone. Every client on the
-  internet then shares a single bucket, and normal traffic starts hitting 429.
-
-Count the proxies between the internet and the container and set the number to
-that.
-
-#### Give the readiness probe more than 5 seconds
-
-`/readyz` pings Postgres and Redis under a 5-second budget of its own
-(`config.HealthCheckTimeout`). A proxy whose probe timeout is shorter cuts the
-answer off mid-flight, so live dependencies are reported unavailable: the copy
-leaves rotation and the log gets a warning for each dependency that never
-actually failed. Set the proxy's health timeout above 5s — `scale/Caddyfile`
-uses 6s for exactly this reason.
-
-#### Known limit: `X-Real-IP` is believed without counting
-
-When a request arrives with **no** `X-Forwarded-For` at all, the app falls back
-to `X-Real-IP` as long as `TRUSTED_PROXY_HOPS >= 1`. That header carries no
-chain, so there is nothing to count and nothing to verify: it is believed on the
-proxy's word alone. And no proxy strips it for you — Caddy passes a client-sent
-`X-Real-IP` through unchanged, and so does nginx with a bare `proxy_pass`. On a
-deployment whose proxy sets neither header, one `X-Real-IP` header lets a caller
-pick its own rate-limit key.
-
-The support is deliberate: nginx setups overwhelmingly send exactly this header,
-and refusing it would break the most common deployment there is. Two ways to
-close it — the `proxy_set_header X-Real-IP $remote_addr;` line above, which
-overwrites the caller's value with the real one, or `TRUSTED_PROXY_HOPS=0`,
-which ignores both headers at the cost of having no proxy in front of the app.
+Per-proxy settings, how to count the hops, a one-request check
+against a live deployment, the 5-second budget a proxy health probe must clear, and the
+`X-Real-IP` limit: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md).
 
 ## Production — recommended path: Dokploy
 
