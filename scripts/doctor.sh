@@ -181,9 +181,12 @@ else
   #                   at all and the whole path IS the object key;
   #   path-addressed  https://files.example.com/uploads — a proxy or path-style S3
   #                   endpoint, where the bucket is the last path segment.
-  # So a path-less prefix is correct as it stands. A prefix that HAS a path must
-  # end with the bucket: any other path is prepended to every object key and 404s
-  # every upload — the classic typo. A trailing slash is tolerated (the app trims one).
+  # So a path-less prefix is correct as it stands IN PUBLIC MODE. A prefix that
+  # HAS a path must end with the bucket: any other path is prepended to every
+  # object key and 404s every upload — the classic typo. In private mode the rule
+  # is stricter still (the branch below): the path must BE the bucket, because
+  # only the host of this value survives into a signed link. A trailing slash is
+  # tolerated either way (the app trims one).
   s3_after_scheme="${BE_S3_PUBLIC%/}"
   s3_after_scheme="${s3_after_scheme#*://}"
   # Empty unless the prefix carries a path, i.e. unless it is more than host[:port].
