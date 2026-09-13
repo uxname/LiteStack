@@ -114,8 +114,10 @@ Reading the logs: `backend/docs/DEBUGGING.md`, `frontend/.agents/OBSERVABILITY.m
   | What the meta-repo pre-commit hook runs | [`lefthook.yml`](../lefthook.yml) |
   | Deploy order and targets | [`docs/DEPLOY.md`](../docs/DEPLOY.md) |
   | Toolchain requirements and minimum versions | the root [`README.md`](../README.md) |
-  | A subscription is not a delivery guarantee | `backend/.agents/ARCHITECTURE.md` *(to be written — backlog v23.12)* |
-  | What session replay does and does not record | `frontend/.agents/OBSERVABILITY.md` *(to be written — backlog v23.4)* |
+  | A subscription is not a delivery guarantee | [`backend/.agents/ARCHITECTURE.md`](../backend/.agents/ARCHITECTURE.md) |
+  | What session replay does and does not record | [`frontend/.agents/OBSERVABILITY.md`](../frontend/.agents/OBSERVABILITY.md) |
+  | Who may read an uploaded file, and for how long | [`backend ADR-0003`](../backend/docs/adr/0003-files-are-private-and-served-through-signed-links.md) for the decision, [`docs/ENV-CONTRACT.md`](../docs/ENV-CONTRACT.md) for `FILE_VISIBILITY` + `FILE_LINK_TTL_MINUTES` |
 
-  `S3_*` is on this list only while the public file path exists: backlog v23.5 removes it,
-  and the `S3_PUBLIC_BASE_URL` checks go with it.
+  `S3_PUBLIC_BASE_URL` did not go away when files became private — it became the prefix a
+  signed link is built from, which is why its checks in `scripts/doctor.sh` got stricter
+  rather than disappearing.

@@ -160,6 +160,29 @@ Per-proxy settings, how to count the hops, a one-request check
 against a live deployment, the 5-second budget a proxy health probe must clear, and the
 `X-Real-IP` limit: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md).
 
+### The next limits: one database, one Redis, vertical growth
+
+Copies of the app are the cheap axis, and it is the only one this template scales
+for you. Everything the copies share stays single:
+
+- **One database host.** Every copy talks to the same Postgres. Adding copies
+  adds load to it and nothing else; past its limit the next step is a bigger
+  machine (vertical growth), then read replicas with the reads routed by hand,
+  then splitting the data — in that order, and each step costs more than the one
+  before. The connection ceiling above (`replicas x DB_POOL_MAX`) usually bites
+  first, and it is a sizing problem, not a scaling one.
+- **One Redis.** Cache, rate-limit counters, the Asynq queue and the pub/sub
+  behind subscriptions all live in it. It is single by design: a rate limit
+  counted in two places is not a rate limit, and a queue split in two loses the
+  ordering that makes it a queue. Grow it vertically; cluster mode is a change to
+  make deliberately, not a flag to flip.
+- **Object storage is the exception** — it is already an external service that
+  scales on its own, which is exactly why uploads never touch a copy's disk.
+
+So: scale copies until the shared parts are the bottleneck, then grow those
+vertically. The stand in `scale/` proves only the first half — that nothing is
+pinned to a copy. It says nothing about how big the database can get.
+
 ## Production — recommended path: Dokploy
 
 [Dokploy](https://dokploy.com) is a self-hosted PaaS; one server runs the panel,
@@ -169,11 +192,27 @@ Traefik, and your containers. Recommended shape:
    a **Redis** service in your Dokploy project, and configure an **S3
    destination** plus a backup schedule on the Postgres service. Do not run
    production databases from the app compose.
+   > 🔒 **secrets** — generate the database and Redis passwords here and let
+   > Dokploy hold them. They never belong in a `.env` inside the repo, in a
+   > compose file, or in a chat message; `npm run secrets` (gitleaks) is what
+   > stops the first two from being committed, and nothing stops the third.
+   > 🔒 **bucket backup**, database half — a backup schedule that has never been
+   > restored is a guess. Restore one into a scratch database before you need it
+   > (see *Backups*); the bucket half is in step 2.
 2. **Object storage for uploads.** The backend needs an S3-compatible bucket that
    every copy can reach and the browser can download from: a managed one (AWS S3,
    Cloudflare R2, Backblaze B2, …) or a Garage/MinIO you run yourself. The
    production compose deliberately does **not** contain one — storage is an
    external service, exactly like Postgres and Redis.
+   > 🔒 **files** — decide `FILE_VISIBILITY` deliberately, now. Leave it
+   > `private` unless the files genuinely are public; then the bucket must refuse
+   > anonymous reads (that is the default state of every managed bucket — do not
+   > "fix" it with a public-read policy) and `S3_PUBLIC_BASE_URL` must be
+   > `<public S3 API address>/<bucket>`. Check it from outside with an unsigned
+   > request for a real object: anything but 403/404 means the door is open.
+   > 🔒 **bucket backup** — the Postgres backup does not cover the bucket. Turn
+   > on your provider's versioning or replication, or a scheduled copy to another
+   > bucket. The app keeps no second copy of a file, so a deleted object is gone.
 3. **Backend as a Dokploy Application.** Either build type *Dockerfile* pointed
    at the backend repo (Dokploy builds `backend/Dockerfile` on deploy), or
    provider *Docker image* pulling a prebuilt `liteend` image from your registry
@@ -182,6 +221,17 @@ Traefik, and your containers. Recommended shape:
    internal hostnames), the `S3_*` set from step 2, plus `NODE_ENV=production`,
    `CORS_ORIGIN` (the frontend origin), and the `OIDC_*` set. Attach a domain;
    Traefik terminates TLS.
+   > 🔒 **sign-in** — `OIDC_MOCK_ENABLED` must be absent or `false`. With
+   > `NODE_ENV=production` the app refuses to boot otherwise, which is the last
+   > line of defence, not the plan: mock auth means every request is an
+   > authenticated user. Confirm `OIDC_AUDIENCE` and `OIDC_ISSUER` are this
+   > environment's, not a copied staging pair.
+   > 🔒 **limits** — `TRUSTED_PROXY_HOPS` must equal the number of proxies
+   > actually in front of the app (Traefik alone: 1; Cloudflare in front of it:
+   > 2). Too high and any caller can forge a fresh rate-limit bucket per request;
+   > too low and everyone behind the proxy shares one. `DB_POOL_MAX` × replicas
+   > must stay under the database's `max_connections`. Both checks are in
+   > *Running more than one copy* above.
 4. **Frontend as a Dokploy Application.** Build type *Dockerfile* on the frontend
    repo, or provider *Docker image* for a prebuilt `litefront` tag — the same tag
    works for every environment. Set that environment's public values as runtime
@@ -190,8 +240,23 @@ Traefik, and your containers. Recommended shape:
    required; `VITE_OIDC_API_RESOURCE`, `VITE_BASE_URL`, `VITE_SENTRY_DSN` and
    `VITE_APP_VERSION` are optional. Miss a required one and the server refuses to
    start, naming it in the log.
-5. **Env checklist:** every must-match pair lives in
-   [ENV-CONTRACT.md](./ENV-CONTRACT.md). Run through it before the first deploy.
+   > 🔒 **environment** — these values are what tells one environment from
+   > another, and an image cannot. A staging frontend pointed at the production
+   > API looks perfectly healthy while writing real users. Read the deployed
+   > values back in Dokploy after the first deploy, not the ones you meant to set.
+5. **Env + security checklist:** every must-match pair lives in
+   [ENV-CONTRACT.md](./ENV-CONTRACT.md). Run through it before the first deploy,
+   together with the six 🔒 checks above — they are listed once here so nothing
+   depends on reading the steps in order:
+
+   | Check | What "done" looks like |
+   |---|---|
+   | **sign-in** | `OIDC_MOCK_ENABLED` off, `OIDC_*` values belong to this environment, a real login works end to end |
+   | **files** | `FILE_VISIBILITY` chosen on purpose; in `private` an unsigned request for a real object answers 403/404 from outside |
+   | **secrets** | Every password and key lives in the deployment platform, not in the repo; `npm run secrets` is clean |
+   | **bucket backup** | Postgres backup scheduled *and* restored once (step 1); the bucket has versioning, replication or a scheduled copy (step 2) |
+   | **limits** | `TRUSTED_PROXY_HOPS` matches the real chain; replicas × `DB_POOL_MAX` < `max_connections` |
+   | **environment** | `CORS_ORIGIN`, `VITE_GRAPHQL_API_URL` and the database host read back from the running deployment are this environment's |
 
 ## Registry flow — build on one machine, run on another
 
@@ -306,17 +371,34 @@ Two addresses configure it, and they are almost never the same value:
 
 - `S3_ENDPOINT` — the storage as **the app** sees it, from inside the network.
 - `S3_PUBLIC_BASE_URL` — the prefix of the link **the browser** follows from
-  outside. It **includes the bucket name** as the browser sees it. A file's URL
-  is this value plus `/` plus the object key, and that URL is what the backend
-  stores in the database and returns.
+  outside. It **includes the bucket name** as the browser sees it. A file's
+  address is this value plus `/` plus the object key, and that address is what
+  the backend stores and signs links for.
 
 Plus `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET` (default `uploads`)
 and `S3_USE_SSL` (`true` only when `S3_ENDPOINT` is https).
 
-Links are public and permanent: the bucket is readable, and a file's name is a
-UUID, so the URL is unguessable but not access-controlled. Do not put anything
-in there that must be authorized to read. Back the bucket up with your storage
-provider's own tooling; the app never keeps a second copy.
+**Who may read a file is `FILE_VISIBILITY`, and the default is `private`.**
+
+- **`private`** — the bucket refuses anonymous readers. Every download goes
+  through a link the API signs on the spot, valid for `FILE_LINK_TTL_MINUTES`
+  (default 15). A link that leaks — in a chat, a cache, a screenshot — stops
+  working. `S3_PUBLIC_BASE_URL` must then be `<public S3 API address>/<bucket>`,
+  because that is the exact prefix a signature is made for, and a proxy in front
+  of it must pass `/<bucket>/*` through **unchanged**: rewrite the path or the
+  `Host` header and every file answers `SignatureDoesNotMatch`.
+- **`public`** — the bucket is world-readable and links never expire. Right for
+  files that genuinely are public (an avatar on a public profile), wrong for
+  anything a user would expect to be private: the URL is unguessable, and
+  unguessable is not access-controlled.
+
+Changing the mode is two steps: the variable changes what the app hands out, and
+`docker compose up -d` re-runs the storage init that opens or closes the bucket.
+`scripts/doctor.sh` reports the mode a machine is configured for, and warns on
+`public`. Why it works this way: [backend ADR-0003](../backend/docs/adr/0003-files-are-private-and-served-through-signed-links.md).
+
+Back the bucket up with your storage provider's own tooling; the app never keeps
+a second copy.
 
 **Known limit: orphaned objects, and nothing collects them.** An upload is two
 steps — write the object to the bucket, then insert the row that points at it —
