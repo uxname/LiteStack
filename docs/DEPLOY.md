@@ -382,8 +382,10 @@ and `S3_USE_SSL` (`true` only when `S3_ENDPOINT` is https).
 
 - **`private`** — the bucket refuses anonymous readers. Every download goes
   through a link the API signs on the spot, valid for `FILE_LINK_TTL_MINUTES`
-  (default 15). A link that leaks — in a chat, a cache, a screenshot — stops
-  working. `S3_PUBLIC_BASE_URL` must then be `<public S3 API address>/<bucket>`,
+  (default 60). A link that leaks — in a chat, a cache, a screenshot — stops
+  working. Shorten it for files worth more than an avatar, but keep it above the
+  lifetime of any page that shows those files, or the images break with nothing
+  in your logs. `S3_PUBLIC_BASE_URL` must then be `<public S3 API address>/<bucket>`,
   because that is the exact prefix a signature is made for, and a proxy in front
   of it must pass `/<bucket>/*` through **unchanged**: rewrite the path or the
   `Host` header and every file answers `SignatureDoesNotMatch`.

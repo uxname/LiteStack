@@ -102,9 +102,11 @@ x-backend: &backend
     # path — which is why Caddy must pass /uploads/* through untouched.
     S3_PUBLIC_BASE_URL: "http://localhost:${SCALE_HTTP_PORT:-8080}/uploads"
     # Files are private here, as in a default deployment: nothing downloads
-    # without a link signed by the API, and the link dies after 15 minutes.
+    # without a link signed by the API. The lifetime is deliberately SHORTER than
+    # the hour a deployment defaults to — the scenarios run in seconds, and a
+    # short one makes an expiring link easy to try by hand against this stand.
     FILE_VISIBILITY: private
-    FILE_LINK_TTL_MINUTES: "15"
+    FILE_LINK_TTL_MINUTES: "5"
     # Required by config.Load even though nothing here verifies a token: with
     # OIDC_MOCK_ENABLED the verifier is never reached. Deliberately unroutable,
     # so a mistake that DOES try to reach a provider fails loudly.
