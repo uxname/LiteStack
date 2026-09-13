@@ -122,7 +122,14 @@ gql() {
 # stand already imposes, and the two shapes it reads are fixed.
 # `sed -n 1p` rather than `head -1`: head closes the pipe on its first line, and
 # the SIGPIPE that gives the first sed would fail the pipeline under pipefail.
-field() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p" | sed -n 1p; }
+# The trailing unescape is load-bearing for signed links: Go's encoding/json
+# escapes "&" as "\u0026", which is correct JSON and correct for every real
+# client, but this reader is a sed, not a JSON parser — left alone, the query
+# string of a signed link arrives as one long parameter and the storage answers
+# 400 to a link that is in fact fine.
+field() {
+  sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p" | sed -n 1p | sed 's/\\u0026/\&/g'
+}
 
 echo "Scale stand check"
 echo "  public entry: $PUBLIC   backends: $BE_A $BE_B   frontends: $FE_A $FE_B"
@@ -156,12 +163,16 @@ fi
 echo
 
 # ---------------------------------------------------------------------------
-# 1. Data is not pinned to a copy: upload through A, download the absolute link
-#    it returns, and read the profile carrying that link through B.
+# 1. Data is not pinned to a copy: upload through A, download the signed link it
+#    returns, and read the profile carrying that file through B.
 #
 #    The download does not go through either copy — after the app dropped its
 #    GET /uploads route the link points at the object store (through Caddy), so
 #    "read the file back through copy B" is not a question that exists any more.
+#    What IS a question is who may download it: the stand runs with the default
+#    FILE_VISIBILITY=private, so the link is signed, the bucket refuses anyone
+#    without a signature, and copy B has to be able to sign a link for a file it
+#    never saw being uploaded.
 # ---------------------------------------------------------------------------
 echo "1. Uploads and profile data cross the copies"
 printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' \
@@ -181,6 +192,12 @@ else
   fail "the link is not an absolute object-store URL under $PUBLIC/uploads/: '$LINK'"
 fi
 
+if [[ "$LINK" == *"X-Amz-Signature="* ]]; then
+  pass "the link is signed, as private file mode requires"
+else
+  fail "the link carries no signature — the stand runs with FILE_VISIBILITY=private: '$LINK'"
+fi
+
 if [[ -n "$LINK" ]]; then
   code="$(status "$WORK/downloaded.png" "$LINK")"
   if [[ "$code" == 200 ]] && cmp -s "$WORK/pixel.png" "$WORK/downloaded.png"; then
@@ -189,19 +206,44 @@ if [[ -n "$LINK" ]]; then
     fail "downloading the link returned HTTP $code and $(wc -c <"$WORK/downloaded.png") bytes, expected 200 and the $(wc -c <"$WORK/pixel.png") uploaded ones"
   fi
 
-  gql "$BE_A" "{\"query\":\"mutation(\$u:URL){updateProfile(input:{avatarUrl:\$u}){avatarUrl}}\",\"variables\":{\"u\":\"$LINK\"}}" \
-    >"$WORK/update.json"
-  if [[ "$(field avatarUrl <"$WORK/update.json")" == "$LINK" ]]; then
-    pass "copy A stored the link on the profile"
+  # The same object, asked for WITHOUT the signature: that is what a private
+  # bucket has to refuse, and it is the difference between "files need a login"
+  # and "files are on the open internet".
+  UNSIGNED="${LINK%%\?*}"
+  code="$(status /dev/null "$UNSIGNED")"
+  if [[ "$code" == 403 || "$code" == 404 ]]; then
+    pass "the same file without the signature is refused (HTTP $code)"
   else
-    fail "copy A did not store the link: $(head -c 200 "$WORK/update.json")"
+    fail "an unsigned request for $UNSIGNED returned HTTP $code — the bucket is open to anyone"
   fi
 
+  gql "$BE_A" "{\"query\":\"mutation(\$u:URL){updateProfile(input:{avatarUrl:\$u}){avatarUrl}}\",\"variables\":{\"u\":\"$LINK\"}}" \
+    >"$WORK/update.json"
+  STORED="$(field avatarUrl <"$WORK/update.json")"
+  if [[ "${STORED%%\?*}" == "$UNSIGNED" && "$STORED" == *"X-Amz-Signature="* ]]; then
+    pass "copy A stored the file on the profile and signed a link back"
+  else
+    fail "copy A did not store the file: $(head -c 200 "$WORK/update.json")"
+  fi
+
+  # Copy B never saw the upload. It has to recognise the stored reference and
+  # sign a working link of its own — the signature it returns is its own, not a
+  # copy of A's, which is what "no copy owns the file" means in practice.
   gql "$BE_B" '{"query":"{me{avatarUrl}}"}' >"$WORK/me.json"
-  if [[ "$(field avatarUrl <"$WORK/me.json")" == "$LINK" ]]; then
+  B_LINK="$(field avatarUrl <"$WORK/me.json")"
+  if [[ "${B_LINK%%\?*}" == "$UNSIGNED" ]]; then
     pass "copy B reads back the profile written through copy A"
   else
     fail "copy B returned a different profile: $(head -c 200 "$WORK/me.json")"
+  fi
+
+  if [[ -n "$B_LINK" ]]; then
+    code="$(status "$WORK/via-b.png" "$B_LINK")"
+    if [[ "$code" == 200 ]] && cmp -s "$WORK/pixel.png" "$WORK/via-b.png"; then
+      pass "the link copy B signed serves the file uploaded through copy A"
+    else
+      fail "the link from copy B returned HTTP $code and $(wc -c <"$WORK/via-b.png") bytes"
+    fi
   fi
 fi
 echo

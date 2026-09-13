@@ -10,8 +10,9 @@
 #     client sent (see trusted_proxies below). The backend runs with
 #     TRUSTED_PROXY_HOPS=1 and therefore reads the LAST entry, so a forged
 #     header buys no second rate-limit bucket.
-#   * /uploads — public file links point at this proxy, not at garage:3900,
-#     which nothing outside the container network can reach.
+#   * /uploads — signed file links point at this proxy, not at garage:3900,
+#     which nothing outside the container network can reach. They are passed
+#     through byte for byte, because the signature covers host and path.
 {
 	# Loopback stand: no certificates to get, and no admin API to expose.
 	auto_https off
@@ -62,16 +63,17 @@
 	# API's own 404 (measured — this is why that matcher is exact). Matching
 	# these first as well costs nothing and removes the trap for good.
 	#
-	# S3_PUBLIC_BASE_URL is http://localhost:8080/uploads, and a file URL is that
-	# prefix + "/" + object key. handle_path strips the prefix, so Garage sees
-	# the bare key — its web endpoint reads the key from the WHOLE path, and a
-	# leftover prefix would be searched for inside the bucket. The bucket is
-	# chosen by the Host header, hence the rewrite to the bucket's own name (its
-	# global alias since creation).
-	handle_path /uploads/* {
-		reverse_proxy garage:3902 {
-			header_up Host uploads
-		}
+	# S3_PUBLIC_BASE_URL is http://localhost:8080/uploads, and a file link is that
+	# prefix + "/" + object key + the signature the backend put on it. That makes
+	# the path /uploads/<key> a path-style S3 request — bucket first, key after —
+	# so it goes to Garage's S3 API on 3900, NOT its web endpoint.
+	#
+	# Nothing here may be rewritten. A SigV4 signature covers the host and the
+	# full path, so stripping the prefix (handle_path) or replacing the Host
+	# (header_up Host) turns every signed link into SignatureDoesNotMatch. The
+	# request has to arrive at Garage exactly as the browser sent it.
+	handle /uploads/* {
+		reverse_proxy garage:3900
 	}
 
 	# The backend's public surface, matched EXACTLY (the dev pages are reachable

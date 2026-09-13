@@ -97,7 +97,14 @@ x-backend: &backend
     # S3 API inside this network, the client downloads through Caddy from outside.
     S3_ENDPOINT: http://garage:3900
     S3_USE_SSL: "false"
+    # The bucket, addressed path-style through Caddy: a signed link is this
+    # value plus "/" plus the object key, and the signature covers that host and
+    # path — which is why Caddy must pass /uploads/* through untouched.
     S3_PUBLIC_BASE_URL: "http://localhost:${SCALE_HTTP_PORT:-8080}/uploads"
+    # Files are private here, as in a default deployment: nothing downloads
+    # without a link signed by the API, and the link dies after 15 minutes.
+    FILE_VISIBILITY: private
+    FILE_LINK_TTL_MINUTES: "15"
     # Required by config.Load even though nothing here verifies a token: with
     # OIDC_MOCK_ENABLED the verifier is never reached. Deliberately unroutable,
     # so a mistake that DOES try to reach a provider fails loudly.
@@ -319,14 +326,13 @@ services:
         garage bucket info "$$S3_BUCKET" >/dev/null 2>&1 || garage bucket create "$$S3_BUCKET"
         garage bucket allow --read --write "$$S3_BUCKET" --key "$$S3_ACCESS_KEY_ID"
 
-        # Public read. Garage refuses anonymous requests on the S3 API outright
-        # ("Garage does not support anonymous access yet"), so public links are
-        # served by its web endpoint, which picks the bucket from the Host
-        # header. Caddy sends the bucket's own name as that Host (see the
-        # Caddyfile), which is a bucket's global alias from creation — so unlike
-        # the submodule's dev stack this needs no extra alias.
-        garage bucket website --allow "$$S3_BUCKET"
-        echo "garage ready: bucket $$S3_BUCKET served publicly"
+        # No anonymous read: this stand runs with FILE_VISIBILITY=private, so the
+        # bucket must refuse everyone who does not carry a signature. Garage
+        # refuses anonymous S3-API requests outright ("Garage does not support
+        # anonymous access yet") and its web endpoint is left switched off here,
+        # so the only way in is a link the backend signed.
+        garage bucket website --deny "$$S3_BUCKET"
+        echo "garage ready: bucket $$S3_BUCKET is private — signed links only"
 
 networks:
   scale:
