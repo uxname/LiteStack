@@ -104,12 +104,12 @@ BE_MOCK="$(val backend OIDC_MOCK_ENABLED)"
 # resolves, and it is the prefix stored with every uploaded file — a typo is permanent.
 BE_S3_PUBLIC="$(val backend S3_PUBLIC_BASE_URL)"
 BE_S3_BUCKET="$(val backend S3_BUCKET)"
-# Same defaults as internal/config: unset means "uploads", "private", 15 minutes.
+# Same defaults as internal/config: unset means "uploads", "private", 60 minutes.
 BE_S3_BUCKET="${BE_S3_BUCKET:-uploads}"
 BE_FILE_MODE="$(val backend FILE_VISIBILITY)"
 BE_FILE_MODE="${BE_FILE_MODE:-private}"
 BE_LINK_TTL="$(val backend FILE_LINK_TTL_MINUTES)"
-BE_LINK_TTL="${BE_LINK_TTL:-15}"
+BE_LINK_TTL="${BE_LINK_TTL:-60}"
 
 FE_PORT="$(val frontend PORT)"
 FE_BASE="$(val frontend VITE_BASE_URL)"
@@ -193,6 +193,8 @@ else
     fail "S3_PUBLIC_BASE_URL ($BE_S3_PUBLIC) carries no path, but FILE_VISIBILITY=private needs it to be <public S3 API address>/$BE_S3_BUCKET — a signed link is that prefix plus the key, and the signature covers the path. The backend refuses to start like this"
   elif [[ -z "$s3_path" ]]; then
     pass "S3_PUBLIC_BASE_URL addresses the bucket by host (no path prefix)"
+  elif [[ "$BE_FILE_MODE" == private && "$s3_path" != "$BE_S3_BUCKET" ]]; then
+    fail "S3_PUBLIC_BASE_URL ($BE_S3_PUBLIC) must be exactly <public S3 API address>/$BE_S3_BUCKET when FILE_VISIBILITY=private — the backend signs links from the HOST alone, so the extra '/${s3_path%/"$BE_S3_BUCKET"}' never reaches the signed link and every file 404s. The backend refuses to start like this"
   elif [[ "/$s3_path" == */"$BE_S3_BUCKET" ]]; then
     pass "S3_PUBLIC_BASE_URL path ends with the bucket name ($BE_S3_BUCKET)"
   else

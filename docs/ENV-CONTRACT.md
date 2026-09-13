@@ -14,9 +14,12 @@ and dead, and it is already stored with the profile by the time anyone sees a br
 image. The check requires an absolute `http(s)` URL on a host a browser can actually
 resolve — a single-label host like `garage` is a container-network name, right for
 `S3_ENDPOINT` and dead in a link — and, when the prefix carries a path, that the path ends
-in the bucket name. With `FILE_VISIBILITY=private` (the default) that path is not optional:
-a signed link is `<public S3 API address>/<bucket>/<key>` and the signature covers the
-host and the path, so the backend refuses to boot with a path-less prefix.
+in the bucket name. With `FILE_VISIBILITY=private` (the default) that path is neither
+optional nor free: a signed link is `<public S3 API address>/<bucket>/<key>`, the signature
+covers the host and the path, and the backend signs from the **host** alone — so the prefix
+must be *exactly* `<public S3 API address>/<bucket>`. A path-less one, or a deeper one such
+as `https://example.com/files/uploads`, is refused at boot rather than turned into links
+nobody can open.
 
 ## Where the values come from
 
