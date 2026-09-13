@@ -8,13 +8,15 @@ variable in the log). Both prod compose files fail even earlier — at
 `docker compose config` time, naming the missing variable — so a half-configured host never
 reaches a container. No `.env` is required for that; exported environment variables work.
 `scripts/doctor.sh` checks these pairs automatically — run it after changing any value.
-It also hard-checks `S3_PUBLIC_BASE_URL` on its own, because nothing else can: the app
-only concatenates that prefix with an object key, so a wrong one yields a link that is
-valid-looking and dead, and it is already stored in `profiles.avatar_url` by the time
-anyone sees a broken image. The check requires an absolute `http(s)` URL on a host a
-browser can actually resolve — a single-label host like `garage` is a container-network
-name, right for `S3_ENDPOINT` and dead in a link — and, when the prefix carries a path,
-that the path ends in the bucket name.
+It also hard-checks `S3_PUBLIC_BASE_URL` on its own, because nothing else can: every file
+link is that prefix plus an object key, so a wrong one yields a link that is valid-looking
+and dead, and it is already stored with the profile by the time anyone sees a broken
+image. The check requires an absolute `http(s)` URL on a host a browser can actually
+resolve — a single-label host like `garage` is a container-network name, right for
+`S3_ENDPOINT` and dead in a link — and, when the prefix carries a path, that the path ends
+in the bucket name. With `FILE_VISIBILITY=private` (the default) that path is not optional:
+a signed link is `<public S3 API address>/<bucket>/<key>` and the signature covers the
+host and the path, so the backend refuses to boot with a path-less prefix.
 
 ## Where the values come from
 
@@ -84,6 +86,8 @@ of the deployment. The full walkthrough is in [DEPLOY.md](./DEPLOY.md#running-mo
 | `TRUSTED_PROXY_HOPS` (default 1) | backend | How many reverse proxies actually sit in front of the app — it decides which address the rate limiter keys on, and both a too-high and a too-low value break it. Why, and how to check: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md). |
 | `S3_ENDPOINT` / `S3_PUBLIC_BASE_URL` | backend | Two different addresses of the same storage: the first as the **app** sees it from inside the network, the second as the **browser** resolves it from outside, bucket name included. A file's URL is the second value plus `/` plus the object key. |
 | `S3_BUCKET` (default `uploads`) | backend | The bucket uploads go into. It is also the tail of `S3_PUBLIC_BASE_URL`: a public base whose path does not end with this name prepends that path to every object key, and every file link 404s. `scripts/doctor.sh` checks the pair. |
+| `FILE_VISIBILITY` (default `private`) | backend | Who may read an uploaded file. **`private`** — nobody without a link signed by the API; the bucket stays closed to anonymous readers and `S3_PUBLIC_BASE_URL` must be `<public S3 API address>/<bucket>`. **`public`** — the bucket is world-readable, links never expire, and `S3_PUBLIC_BASE_URL` is whatever address serves the bucket (for the dev Garage, its web endpoint on 3902, addressed by host). Changing it is not only an app restart: the storage init step opens or closes the bucket to match, so bring the stack up again. |
+| `FILE_LINK_TTL_MINUTES` (default 15) | backend | How long a signed link stays valid, in minutes (private mode only; 1…10080, the S3 signature limit). The link is a bearer token for that one file, so keep it to about as long as a page needs to load the image. |
 | `PROXY_NETWORK` (default `dokploy-network`) | both | Name of the existing external Docker network the reverse proxy runs on. Both prod composes join it instead of publishing a host port. |
 
 ## Bootstrap order (why it matters)

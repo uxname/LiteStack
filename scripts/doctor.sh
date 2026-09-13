@@ -83,7 +83,7 @@ fail()  { printf '  \033[31m✗\033[0m %s\n' "$1"; FAIL=$((FAIL+1)); }
 warn()  { printf '  \033[33m!\033[0m %s\n' "$1"; WARN=$((WARN+1)); }
 
 # The contract keys, per side — also what the source report below counts.
-BE_KEYS=(PORT CORS_ORIGIN OIDC_ISSUER OIDC_AUDIENCE OIDC_MOCK_ENABLED S3_PUBLIC_BASE_URL S3_BUCKET)
+BE_KEYS=(PORT CORS_ORIGIN OIDC_ISSUER OIDC_AUDIENCE OIDC_MOCK_ENABLED S3_PUBLIC_BASE_URL S3_BUCKET FILE_VISIBILITY)
 FE_KEYS=(PORT VITE_BASE_URL VITE_OIDC_AUTHORITY VITE_OIDC_API_RESOURCE VITE_GRAPHQL_API_URL)
 
 echo "Env contract check"
@@ -101,11 +101,15 @@ BE_CORS="$(val backend CORS_ORIGIN)"
 BE_MOCK="$(val backend OIDC_MOCK_ENABLED)"
 
 # S3_ENDPOINT is where the APP connects; S3_PUBLIC_BASE_URL is what the BROWSER
-# resolves, and it is stored verbatim in profiles.avatar_url — a typo is permanent.
+# resolves, and it is the prefix stored with every uploaded file — a typo is permanent.
 BE_S3_PUBLIC="$(val backend S3_PUBLIC_BASE_URL)"
 BE_S3_BUCKET="$(val backend S3_BUCKET)"
-# Same default as internal/config: an unset S3_BUCKET means "uploads".
+# Same defaults as internal/config: unset means "uploads", "private", 15 minutes.
 BE_S3_BUCKET="${BE_S3_BUCKET:-uploads}"
+BE_FILE_MODE="$(val backend FILE_VISIBILITY)"
+BE_FILE_MODE="${BE_FILE_MODE:-private}"
+BE_LINK_TTL="$(val backend FILE_LINK_TTL_MINUTES)"
+BE_LINK_TTL="${BE_LINK_TTL:-15}"
 
 FE_PORT="$(val frontend PORT)"
 FE_BASE="$(val frontend VITE_BASE_URL)"
@@ -185,7 +189,9 @@ else
   # Empty unless the prefix carries a path, i.e. unless it is more than host[:port].
   s3_path=""
   if [[ "$s3_after_scheme" == */* ]]; then s3_path="${s3_after_scheme#*/}"; fi
-  if [[ -z "$s3_path" ]]; then
+  if [[ -z "$s3_path" && "$BE_FILE_MODE" == private ]]; then
+    fail "S3_PUBLIC_BASE_URL ($BE_S3_PUBLIC) carries no path, but FILE_VISIBILITY=private needs it to be <public S3 API address>/$BE_S3_BUCKET — a signed link is that prefix plus the key, and the signature covers the path. The backend refuses to start like this"
+  elif [[ -z "$s3_path" ]]; then
     pass "S3_PUBLIC_BASE_URL addresses the bucket by host (no path prefix)"
   elif [[ "/$s3_path" == */"$BE_S3_BUCKET" ]]; then
     pass "S3_PUBLIC_BASE_URL path ends with the bucket name ($BE_S3_BUCKET)"
@@ -204,6 +210,26 @@ else
     fail "S3_PUBLIC_BASE_URL host '$s3_host' has no dot — that is a container-network name; a browser cannot resolve it. Use the address your users reach (a domain, or localhost for local work)"
   fi
 fi
+
+# 6b. File visibility: which of the two shapes above is even legal, and how long
+# a signed link lives. Both are read by the backend alone, but a wrong value here
+# is the difference between "files are behind a login" and "files are on the open
+# internet", so the doctor says which mode this machine is configured for.
+case "$BE_FILE_MODE" in
+  private)
+    if [[ "$BE_LINK_TTL" =~ ^[0-9]+$ ]] && ((BE_LINK_TTL >= 1 && BE_LINK_TTL <= 10080)); then
+      pass "files are private — links are signed and expire after ${BE_LINK_TTL}m"
+    else
+      fail "FILE_LINK_TTL_MINUTES ($BE_LINK_TTL) must be a whole number of minutes between 1 and 10080 (7 days, the S3 signature limit)"
+    fi
+    ;;
+  public)
+    warn "files are PUBLIC — every uploaded file is readable by anyone with the URL, forever (FILE_VISIBILITY=public)"
+    ;;
+  *)
+    fail "FILE_VISIBILITY ($BE_FILE_MODE) must be 'private' or 'public'"
+    ;;
+esac
 
 # 7. (optional) Reachability — pre-codegen GraphQL probe, plus the storage prefix
 if [[ "$PROBE" == 1 ]]; then
