@@ -103,7 +103,9 @@ interchangeable. Point each consumer at the right one.
 The difference matters the moment there is more than one copy: every orchestrator
 answers a failed **liveness** probe by killing the container. If liveness pinged
 the database, one database blip would restart the entire fleet at once, instead
-of briefly draining traffic away from it.
+of briefly draining traffic away from it. Both backend probes propagate the
+`X-Request-Id` header (from the request or context) in responses for end-to-end trace
+correlation.
 
 **Why only the dependencies decide readiness**, and why the heap reading is reported but
 never judged: [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md).

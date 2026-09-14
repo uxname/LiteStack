@@ -60,7 +60,7 @@ model {
     }
 
     api = container 'Backend «liteend»' {
-      description 'GraphQL API: queries via POST /graphql, subscriptions over WebSocket (graphql-transport-ws protocol), file upload via POST /upload. It is also the only thing that can hand out a download link for a private file, by signing one on the spot. Runs in several identical copies and writes nothing to its own disk — an uploaded file goes straight to the object storage, so the next request may safely land on any other copy. TWO health endpoints, on purpose: /livez means "the process is running" and touches no database (the container HEALTHCHECK uses it, and a failed one gets the container restarted — a probe that pinged the database would restart the whole fleet the moment the database blinked), while /readyz means "I can take traffic right now" and does ping Postgres and Redis (the proxy uses it to route around a copy that lost a dependency). There is NO route that serves files back: downloads go to the storage directly. On startup every copy applies its goose migrations under a Postgres advisory lock — a database-wide "one at a time" flag — so copies booting together do not race: one migrates, the rest wait and find nothing to do. Migrations are forward only; there is no schema rollback. The container always listens on 4000 and publishes no host port.'
+      description 'GraphQL API: queries via POST /graphql, subscriptions over WebSocket (graphql-transport-ws protocol), file upload via POST /upload. It is also the only thing that can hand out a download link for a private file, by signing one on the spot. Runs in several identical copies and writes nothing to its own disk — an uploaded file goes straight to the object storage, so the next request may safely land on any other copy. TWO health endpoints, on purpose: /livez means "the process is running" and touches no database (the container HEALTHCHECK uses it, and a failed one gets the container restarted — a probe that pinged the database would restart the whole fleet the moment the database blinked), while /readyz means "I can take traffic right now" and does ping Postgres and Redis (the proxy uses it to route around a copy that lost a dependency). Both probes, like all API endpoints, propagate the X-Request-Id header for trace correlation. There is NO route that serves files back: downloads go to the storage directly. On startup every copy applies its goose migrations under a Postgres advisory lock — a database-wide "one at a time" flag — so copies booting together do not race: one migrates, the rest wait and find nothing to do. Migrations are forward only; there is no schema rollback. The container always listens on 4000 and publishes no host port.'
       technology 'Go · gqlgen · sqlc · goose · Asynq · minio-go'
       style {
         multiple true
@@ -89,10 +89,13 @@ model {
     proxy -> web 'asks: is this copy still alive?' 'Polls the static /health.txt every few seconds. A copy that stops answering is dropped from rotation until it answers again.'
 
     proxy -> api 'spreads API requests across the copies' {
-      description 'Round robin over every backend copy on port 4000. The proxy APPENDS the caller real address on the RIGHT of X-Forwarded-For; the backend counts TRUSTED_PROXY_HOPS entries from the right (default 1) to find the client. That is why a client who forges the header gets no fresh rate-limit bucket: whatever it wrote stays to the left and is ignored.'
-      technology 'HTTP + X-Forwarded-For'
+      description 'Round robin over every backend copy on port 4000. The proxy APPENDS the caller real address on the RIGHT of X-Forwarded-For; the backend counts TRUSTED_PROXY_HOPS entries from the right (default 1) to find the client. That is why a client who forges the header gets no fresh rate-limit bucket: whatever it wrote stays to the left and is ignored. All requests propagate X-Request-Id for trace correlation.'
+      technology 'HTTP + X-Forwarded-For + X-Request-Id'
     }
-    proxy -> api 'asks: may this copy take traffic?' 'Polls /readyz every few seconds; that endpoint pings Postgres and Redis. A copy that lost its database is taken OUT OF ROTATION rather than restarted — restarting is what the liveness probe (/livez) in the image HEALTHCHECK is for.'
+    proxy -> api 'asks: may this copy take traffic?' {
+      description 'Polls /readyz every few seconds; that endpoint pings Postgres and Redis. A copy that lost its database is taken OUT OF ROTATION rather than restarted — restarting is what the liveness probe (/livez) in the image HEALTHCHECK is for. The probe propagates X-Request-Id for trace correlation.'
+      technology 'HTTP + X-Request-Id'
+    }
 
     web -> api 'sends GraphQL queries' {
       description 'POST /graphql with an Authorization: Bearer <JWT> header; subscriptions take the same route over WebSocket. The API address (VITE_GRAPHQL_API_URL) is read from the container environment at boot, so pointing the same image at another API is a restart, not a rebuild. The backend CORS_ORIGIN must include the frontend origin, or the browser blocks the requests and WebSocket subscriptions die with 403. Failed responses carry extensions.requestId — the id the backend stamps on every log line of that request; the frontend keeps it and shows it in the error screen, so one id joins both logs.'
@@ -169,10 +172,10 @@ views {
     lstack.proxy -> lstack.web 'Step 2: the proxy passes the request to the NEXT frontend copy in turn, choosing only among the copies whose /health.txt still answers; that copy renders the page — any of them can, they hold no state'
     user -> logto 'Step 3: sign-in — the browser goes to Logto (OIDC PKCE) and returns with tokens'
     user -> lstack.proxy 'Step 4: the browser sends POST /graphql with a Bearer JWT; subscriptions take the same path over WebSocket'
-    lstack.proxy -> lstack.api 'Step 5: the proxy hands it to the next backend copy that answers /readyz — that probe pings Postgres and Redis, so a copy which lost a dependency is skipped instead of being restarted'
+    lstack.proxy -> lstack.api 'Step 5: the proxy hands it to the next backend copy that answers /readyz (requests and probes propagate X-Request-Id) — that probe pings Postgres and Redis, so a copy which lost a dependency is skipped instead of being restarted'
     lstack.api -> logto 'Step 6: that copy verifies the token signature against the public keys (JWKS)'
     lstack.api -> lstack.db 'Step 7: runs SQL through sqlc against the shared database — which is why it does not matter which copy answered'
-    lstack.api -> lstack.cache 'Step 8: long operations become Asynq jobs, and subscription events are published to Redis so a socket held by another copy still receives them'
+    lstack.api -> lstack.cache 'Step 8: long operations become Asynq jobs (carrying request_id in payloads), and subscription events are published to Redis so a socket held by another copy still receives them'
   }
 
   dynamic view fileFlow {
