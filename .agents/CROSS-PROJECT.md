@@ -11,7 +11,8 @@ sub-project's own `AGENTS.md`.
 | `frontend/` | SPA/SSR (**litefront**) | Vite · React 19 · TanStack Start · URQL · Zustand · Tailwind v4 · daisyUI · Paraglide | `3000` |
 
 Backend infra ports: PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsight
-`5200`, Asynqmon `5300` — all dashboards sit behind a Basic-Auth proxy.
+`5200`, Asynqmon `5300`, Garage Web UI `5400` — all dashboards sit behind a
+Basic-Auth proxy.
 
 ## Which project for which task
 

@@ -55,9 +55,9 @@ docker compose up -d      # all-in-one: app + Postgres + Redis + Garage + admin 
 
 The dev compose is the whole environment: Postgres, Redis, a
 [Garage](https://garagehq.deuxfleurs.fr) object store for uploaded files, and
-pgweb / RedisInsight / Asynqmon behind a Caddy Basic-Auth proxy
+pgweb / RedisInsight / Asynqmon / Garage Web UI behind a Caddy Basic-Auth proxy
 (`ADMIN_USER`/`ADMIN_PASSWORD`, host ports
-`DB_STUDIO_PORT`/`REDIS_STUDIO_PORT`/`ASYNQMON_PORT`). Garage sets itself up on
+`DB_STUDIO_PORT`/`REDIS_STUDIO_PORT`/`ASYNQMON_PORT`/`S3_STUDIO_PORT`). Garage sets itself up on
 the first `up` — a `garage-init` container writes the cluster layout, the access
 key and the bucket — so there is no manual step after `up`.
 
@@ -206,6 +206,10 @@ Traefik, and your containers. Recommended shape:
    Cloudflare R2, Backblaze B2, …) or a Garage/MinIO you run yourself. The
    production compose deliberately does **not** contain one — storage is an
    external service, exactly like Postgres and Redis.
+   Running your own Garage? Its web UI
+   ([garage-webui](https://github.com/khairul169/garage-webui)) belongs next to that
+   Garage, not in this compose: turn on `[admin]` there with a real `admin_token`, keep
+   port 3903 unpublished, and serve the UI through the same authenticated reverse proxy.
    > 🔒 **files** — decide `FILE_VISIBILITY` deliberately, now. Leave it
    > `private` unless the files genuinely are public; then the bucket must refuse
    > anonymous reads (that is the default state of every managed bucket — do not
