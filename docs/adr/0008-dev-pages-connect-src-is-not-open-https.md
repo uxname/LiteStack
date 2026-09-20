@@ -43,3 +43,7 @@ comes back.
 - The GraphQL playground is unaffected: it fetches `/graphql` on our own origin.
 - A dev page that genuinely needs another host must have that host named in `devCSP`, which
   is a visible, reviewable change rather than a silent one.
+- The bundle itself is pinned twice: by exact version, and by an SRI hash on the script tag
+  (`scalarSRI` in `internal/devtools/devtools.go`). Bumping the version without recomputing
+  the hash gives a blank page; the test message says how to recompute it. `connect-src`
+  governs where the page may talk, SRI governs what it may run — neither replaces the other.
