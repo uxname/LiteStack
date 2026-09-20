@@ -14,6 +14,14 @@
 // plus the "build server → registry → run server" deployment path from
 // docs/DEPLOY.md.
 //
+// ONE MORE THING ON THIS DIAGRAM IS NOT PRODUCTION. Everything tagged #dev —
+// the four developer pages the backend serves (/dev, /playground, /docs,
+// /openapi.yaml), the public CDN they pull their scripts from, and the four
+// local dashboards — exists for whoever builds the product, not for users. It
+// is painted amber, it is excluded from the two overview views, and it has two
+// views of its own at the bottom of this file. Do not plan capacity or draw
+// conclusions about user traffic from an amber box.
+//
 // READ THIS FIRST — both apps run in SEVERAL IDENTICAL COPIES ("replicas")
 // behind one reverse proxy: `docker compose -f docker-compose.prod.yml up -d
 // --scale app=N`. Copies are drawn as a stack of cards. Nothing that would
@@ -255,10 +263,10 @@ model {
     technology 'HTTPS'
   }
 
-  dash.pgweb -> lstack.db 'reads the tables and rows'
-  dash.redisInsight -> lstack.cache 'reads the keys'
+  dash.pgweb -> lstack.db 'reads the tables and rows' 'A direct database connection, made on the developer machine to the LOCAL Postgres that the same compose file started. No dashboard is ever pointed at a production database — none of them is deployed anywhere.'
+  dash.redisInsight -> lstack.cache 'reads the keys' 'Connects straight to the local Redis; the connection details are filled in for it by the compose file.'
   dash.asynqmon -> lstack.cache 'reads the job queue' 'Asynq keeps its queues inside Redis, so the dashboard reads them straight out of Redis; the backend is not involved.'
-  dash.garageUI -> lstack.files 'lists buckets and uploaded files'
+  dash.garageUI -> lstack.files 'lists buckets and uploaded files' 'Talks to the admin interface of the local Garage, which is also where it gets the bucket key from — so it carries no credentials of its own.'
 
   user -> lstack.proxy 'opens the site over HTTPS'
   user -> lstack.files 'downloads uploaded files DIRECTLY' {
@@ -277,15 +285,27 @@ model {
 }
 
 views {
+  // Anything developer-only is painted amber wherever it shows up, so a box
+  // from the dev contour is never mistaken for a part of the running product.
+  style element.tag = #dev {
+    color amber
+  }
+
+  // The two overview views below are the PRODUCTION picture and stay that way:
+  // the developer contour is excluded by its tag, so adding a dev page or a
+  // dashboard can never quietly leak into a diagram someone reads as "what runs
+  // for users". The dev contour has its own two views at the bottom.
   view index {
     title 'LiteStack: who talks to whom'
     include *
+    exclude element.tag = #dev
   }
 
   view ofLstack of lstack {
     title 'What the system consists of'
     include *
     include logto
+    exclude element.tag = #dev
   }
 
   dynamic view requestFlow {
@@ -318,5 +338,28 @@ views {
     engineer -> runsrv 'Step 4: sets IMAGE_REGISTRY and IMAGE_TAG on the target host, calls docker compose pull for both sides'
     runsrv -> registry 'Step 5: pulls the images; if the digest did not change, up -d is a no-op — verify with docker compose images'
     engineer -> runsrv 'Step 6: `up -d --scale app=N` brings up N copies of each side; the first backend copy to get the advisory lock runs goose migrations (forward-only) while the others wait'
+  }
+
+  // ---- The developer contour. Read the title before the boxes. ----
+  view devTools {
+    title 'FOR DEVELOPERS ONLY: the dev pages and the dashboards (users never see any of this)'
+    include engineer
+    include lstack
+    include lstack.api, lstack.api.*
+    include lstack.db, lstack.cache, lstack.files
+    include jsdelivr
+    include dash, dash.*
+  }
+
+  dynamic view devToolsFlow {
+    title 'How a developer uses the dev pages, step by step'
+    engineer -> lstack.api.devHome 'Step 1: opens /dev on the app own address. The browser asks for a login and password (basic auth) and shows nothing until they are right'
+    lstack.api.devHome -> engineer 'Step 2: a page of links comes back — the sandbox, the reference, the readiness check and the four dashboards. The dashboard addresses were built when the app started, from the configured ports'
+    engineer -> lstack.api.docs 'Step 3: clicks the reference. The page that arrives is nearly empty'
+    lstack.api.docs -> jsdelivr 'Step 4: the browser downloads the program that draws the reference — by exact version, with a checksum. A file that does not match the checksum is refused and the page stays blank'
+    lstack.api.docs -> lstack.api.openapi 'Step 5: that program fetches /openapi.yaml from our own server and draws the endpoints it finds there. Two blocked-request errors for api.scalar.com appear in the console: the rule from ADR-0008 stopping the program from calling its own home'
+    engineer -> dash.adminProxy 'Step 6: back on /dev, clicks pgweb — which is a link to 127.0.0.1:5100, the one door in front of all four dashboards. Another login, a separate one'
+    dash.adminProxy -> dash.pgweb 'Step 7: the door passes the request to pgweb, the only thing that publishes no port of its own'
+    dash.pgweb -> lstack.db 'Step 8: pgweb reads the LOCAL Postgres started by the same compose file, and the developer sees the rows. Nothing in these eight steps exists in production except the pages themselves, which sit there behind that first password'
   }
 }
