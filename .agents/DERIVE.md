@@ -40,7 +40,7 @@ word — the list is searched, not kept by hand — and, with `--repo-owner`, th
 references and the backend Go module path across `go.mod` and every backend `*.go`.
 
 It does **not** touch the backend's own brand strings, which are UI text:
-`internal/version/version.go` (`AppName`), the dev launcher and Swagger pages in
+`internal/version/version.go` (`AppName`), the dev launcher and API reference pages in
 `internal/devtools/`, and the GraphQL playground title in `internal/graph/handler.go`.
 Rename those by hand if the backend dev surfaces are user-visible in your product. Nor
 your own code or README prose.
