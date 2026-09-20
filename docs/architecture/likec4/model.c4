@@ -27,6 +27,14 @@ specification {
   element system                                   // a ready-made external system
   element container                                // an app or a data store
   element infrastructure                            // machines, the registry, the test stand
+  element component                                 // one page or route inside an app
+
+  // Everything tagged #dev belongs to the DEVELOPER's contour: it exists for
+  // the people who build the product, on their own machine, and no user ever
+  // meets it. The production views (index, "What the system consists of" and
+  // the flows) hide it; the "Developer contour" view shows it alone. Never read
+  // a #dev element or arrow as something users depend on.
+  tag dev
 }
 
 model {
@@ -65,6 +73,41 @@ model {
       style {
         multiple true
       }
+
+      // ---- The developer pages (routes of this very binary) ----
+      // Not a separate app, not a separate deploy: four more routes in the same
+      // Go process, registered in internal/app/app.go (mountRoutes). They ship
+      // in EVERY build, production included — the only thing in front of them
+      // is a login prompt (HTTP Basic Auth, ADMIN_USER / ADMIN_PASSWORD, code in
+      // internal/middleware/basicauth.go). Three of them also run under a looser
+      // content policy than the API, because they load scripts from a CDN
+      // (devCSP in internal/devtools/devtools.go).
+      devHome = component 'Page /dev — the launcher' {
+        #dev
+        description 'A plain page of links to everything a developer needs while working: the two pages below, the readiness check, and the four dashboards outside the app. It is nothing but links — the page loads nothing from the internet and opens with the network down. The dashboard addresses are not written into the page: they are built when the app starts, out of the configured ports (devLinks in internal/app/app.go).'
+      }
+
+      playground = component 'Page /playground — the GraphQL sandbox' {
+        #dev
+        description 'A page where a developer types a GraphQL query by hand and sees the answer. It sends those queries to /graphql — the same route the frontend uses, no shortcut around it. The page itself is almost empty: the program that draws it is downloaded from a CDN every time the page opens.'
+        technology 'gqlgen playground'
+      }
+
+      docs = component 'Page /docs — the REST API reference' {
+        #dev
+        description 'A readable description of the handful of REST endpoints (/upload, /livez, /readyz): what to send and what comes back. Nobody writes this page by hand — it reads the spec file next to it and draws what it finds, so the two can never disagree. Like the sandbox, the program that draws it is downloaded from a CDN.'
+        technology 'Scalar api-reference (version pinned exactly)'
+      }
+
+      openapi = component 'File /openapi.yaml — the spec itself' {
+        #dev
+        description 'The same REST description in machine-readable form, kept as a real file inside the binary (internal/devtools/openapi.yaml). A test compares it with the routes the app actually registers and fails when they drift apart. People normally read it through /docs; other programs read it directly.'
+        technology 'OpenAPI 3.0.3 (YAML)'
+      }
+
+      devHome -> playground 'links to it' 'Just a link on the page. Nothing happens until a developer clicks.'
+      devHome -> docs 'links to it' 'Just a link on the page.'
+      docs -> openapi 'reads the spec and draws it' 'The browser fetches /openapi.yaml from the same address and the reference page is built from it — which is why the page can never describe an API different from the file.'
     }
 
     db = container 'PostgreSQL' {
@@ -137,6 +180,85 @@ model {
     description 'A local rig that proves the copies are interchangeable BEFORE a release, since there is no CI. `docker compose -f scale/docker-compose.yml up -d --wait` brings up two copies of each side behind one Caddy, with a shared Postgres, Redis and a self-initialising Garage; then scripts/scale-check.sh runs four scenarios and prints ok/not ok for each: a file uploaded through copy A is downloadable and readable through copy B, two clients behind the proxy get independent rate-limit buckets while a forged X-Forwarded-For gets none, pages render on both frontend copies, and a subscription opened on one copy receives what another copy published. Not part of the product and never deployed.'
     technology 'docker compose · Caddy · Garage'
   }
+
+  // ======== THE DEVELOPER CONTOUR (nothing here serves users) ========
+  // Everything below is tagged #dev and is hidden from the production views.
+  // Two groups: one public CDN the dev pages pull their scripts from, and four
+  // ready-made dashboards that run only on a developer's own machine.
+
+  jsdelivr = system 'cdn.jsdelivr.net (public CDN)' {
+    #dev
+    description 'A public file host for JavaScript libraries. The sandbox and the reference page are thin shells: the program that actually draws each of them is downloaded from here every time the page opens. That means a stranger machine supplies code that runs inside our page, so two locks are on it. (1) The reference script is asked for BY EXACT VERSION and with a checksum attached (SRI): if the CDN ever returns a file that does not match the checksum, the browser refuses to run it and the page stays blank — that is the lock working, not a breakage. (2) A rule (devCSP) lists the only two addresses these pages may talk to: our own server and this CDN. Anything else the browser blocks. Written down in docs/adr/0008-dev-pages-connect-src-is-not-open-https.md.'
+  }
+
+  // Four ready-made images started by backend/docker-compose.yml and by nothing
+  // else — docker-compose.prod.yml does not know they exist. Their links on the
+  // /dev page point at 127.0.0.1 ports (5100/5200/5300/5400 by default), so they
+  // are reachable from the developer's own machine and from nowhere on the
+  // network. The data they show is the LOCAL Postgres, Redis and Garage started
+  // by the same compose file — never a production database.
+  dash = infrastructure 'Admin dashboards (local dev compose only)' {
+    #dev
+    description 'Four ready-made web tools that let a developer look inside the data while working, instead of writing SQL and Redis commands by hand. They are not part of the product and are never deployed: backend/docker-compose.yml starts them, the production compose does not. All four sit behind one door.'
+    technology 'docker compose (backend/docker-compose.yml)'
+
+    adminProxy = container 'The one door (Caddy + login prompt)' {
+      #dev
+      description 'None of the four dashboards publishes a port of its own. This small proxy does — four addresses on the developer own machine (127.0.0.1:5100/5200/5300/5400) — and it asks for a login and password before letting anything through. Those four addresses are exactly what the links on /dev point at.'
+      technology 'Caddy 2 + HTTP Basic Auth'
+    }
+
+    pgweb = container 'pgweb — database browser' {
+      #dev
+      description 'Shows the tables and rows of the local Postgres in a browser, and runs a query if you type one. The same idea as Prisma Studio.'
+      technology 'sosedoff/pgweb'
+    }
+
+    redisInsight = container 'RedisInsight — Redis browser' {
+      #dev
+      description 'The official Redis viewer: lists keys, shows what is inside them. The connection to the local Redis is pre-filled, so there is nothing to set up.'
+      technology 'redis/redisinsight'
+    }
+
+    asynqmon = container 'Asynqmon — background-job dashboard' {
+      #dev
+      description 'Shows the background jobs the backend queued: what is waiting, what is running, what failed and why — and lets a failed one be retried. The same idea as Bull Board.'
+      technology 'hibiken/asynqmon'
+    }
+
+    garageUI = container 'Garage Web UI — file browser' {
+      #dev
+      description 'Lists the buckets and the uploaded files in the local object storage, so a developer can see that an upload really landed. It asks the Garage admin interface for the bucket key itself, so it needs no credentials of its own.'
+      technology 'khairul169/garage-webui'
+    }
+
+    adminProxy -> pgweb 'passes the request on, once the password checked out'
+    adminProxy -> redisInsight 'passes the request on, once the password checked out'
+    adminProxy -> asynqmon 'passes the request on, once the password checked out'
+    adminProxy -> garageUI 'passes the request on, once the password checked out'
+  }
+
+  engineer -> lstack.api.devHome 'opens /dev and enters the dev login' {
+    description 'The four developer pages are ordinary routes of the backend, so they are opened at the app own address. The browser asks for a login and password first (basic auth); a wrong one gets a 401 and the page is never rendered. These pages exist in production builds too — which is why the password matters there and the default "admin/admin" must not survive a deploy.'
+    technology 'HTTPS + HTTP Basic Auth'
+  }
+  engineer -> dash.adminProxy 'opens a dashboard from the links on /dev' 'Goes to one of the four 127.0.0.1 addresses and enters a login again — the dashboards have their own door, separate from the door of the app.'
+
+  lstack.api.devHome -> dash.adminProxy 'links to the four dashboards' 'Plain hyperlinks, built at startup from the configured ports. The /dev page itself never calls the dashboards — the browser of the developer does, after a click.'
+
+  lstack.api.playground -> jsdelivr 'downloads the program that draws the sandbox' {
+    description 'Fetched when the page opens. Nothing else is fetched from outside: the queries the sandbox sends go to our own /graphql.'
+    technology 'HTTPS'
+  }
+  lstack.api.docs -> jsdelivr 'downloads the program that draws the reference' {
+    description 'Asked for by exact version and with a checksum (SRI) attached, so a replaced file will not run. Note for whoever opens the browser console here: two blocked-request errors about api.scalar.com show up on every load. That is the rule in ADR-0008 stopping the downloaded program from phoning its own home. Do not "fix" it by widening the rule.'
+    technology 'HTTPS'
+  }
+
+  dash.pgweb -> lstack.db 'reads the tables and rows'
+  dash.redisInsight -> lstack.cache 'reads the keys'
+  dash.asynqmon -> lstack.cache 'reads the job queue' 'Asynq keeps its queues inside Redis, so the dashboard reads them straight out of Redis; the backend is not involved.'
+  dash.garageUI -> lstack.files 'lists buckets and uploaded files'
 
   user -> lstack.proxy 'opens the site over HTTPS'
   user -> lstack.files 'downloads uploaded files DIRECTLY' {
