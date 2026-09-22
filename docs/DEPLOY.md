@@ -225,13 +225,18 @@ Traefik, and your containers. Recommended shape:
    (see the registry flow below). Set the runtime env in Dokploy:
    `DATABASE_*` and `REDIS_*` pointing at the two Dokploy services (use their
    internal hostnames), the `S3_*` set from step 2, plus `NODE_ENV=production`,
-   `CORS_ORIGIN` (the frontend origin), and the `OIDC_*` set. Attach a domain;
+   `CORS_ORIGIN` (the frontend origin), the `OIDC_*` set, and `ADMIN_USER` /
+   `ADMIN_PASSWORD` (the Basic Auth of the dev pages, which ship in production —
+   the app refuses to boot on the `admin` default). Attach a domain;
    Traefik terminates TLS.
-   > 🔒 **sign-in** — `OIDC_MOCK_ENABLED` must be absent or `false`. With
-   > `NODE_ENV=production` the app refuses to boot otherwise, which is the last
-   > line of defence, not the plan: mock auth means every request is an
-   > authenticated user. Confirm `OIDC_AUDIENCE` and `OIDC_ISSUER` are this
-   > environment's, not a copied staging pair.
+   > 🔒 **sign-in** — `OIDC_MOCK_ENABLED` must be absent or `false`: the app
+   > refuses it unless `NODE_ENV` is `development` or `test`, and refuses any
+   > `NODE_ENV` other than `development`, `test` or `production` (run staging as
+   > `production`). That is the last line of defence, not the plan: mock auth
+   > makes every anonymous request an ADMIN. `OIDC_AUDIENCE` is the **API
+   > resource indicator** — never the SPA's client id (an ID token carries that
+   > as its audience, and the API refuses ID tokens). Confirm `OIDC_AUDIENCE`
+   > and `OIDC_ISSUER` are this environment's, not a copied staging pair.
    > 🔒 **limits** — `TRUSTED_PROXY_HOPS` must equal the number of proxies
    > actually in front of the app (Traefik alone: 1; Cloudflare in front of it:
    > 2). Too high and any caller can forge a fresh rate-limit bucket per request;
@@ -252,12 +257,13 @@ Traefik, and your containers. Recommended shape:
    > values back in Dokploy after the first deploy, not the ones you meant to set.
 5. **Env + security checklist:** every must-match pair lives in
    [ENV-CONTRACT.md](./ENV-CONTRACT.md). Run through it before the first deploy,
-   together with the six 🔒 checks above — they are listed once here so nothing
+   together with the 🔒 checks above — they are listed once here so nothing
    depends on reading the steps in order:
 
    | Check | What "done" looks like |
    |---|---|
-   | **sign-in** | `OIDC_MOCK_ENABLED` off, `OIDC_*` values belong to this environment, a real login works end to end |
+   | **sign-in** | `NODE_ENV=production`, `OIDC_MOCK_ENABLED` off, `OIDC_AUDIENCE` is the API resource, `OIDC_*` values belong to this environment, a real login works end to end |
+   | **admin** | `ADMIN_USER` / `ADMIN_PASSWORD` set to your own values (the dev pages `/playground`, `/dev`, `/docs`, `/openapi.yaml` ship in production) |
    | **files** | `FILE_VISIBILITY` chosen on purpose; in `private` an unsigned request for a real object answers 403/404 from outside |
    | **secrets** | Every password and key lives in the deployment platform, not in the repo; `npm run secrets` is clean |
    | **bucket backup** | Postgres backup scheduled *and* restored once (step 1); the bucket has versioning, replication or a scheduled copy (step 2) |
@@ -345,7 +351,12 @@ owns TLS and the public ports; the app containers publish nothing.
 2. **Backend:** `backend/docker-compose.prod.yml` runs the **app only** — no
    database, no Redis, no object storage on purpose. Provide your own and point
    `DATABASE_*`, `REDIS_*` and `S3_*` at them through `.env` or exported
-   variables. Mind name resolution: a service name from a *neighboring* compose
+   variables, and set `ADMIN_USER` / `ADMIN_PASSWORD` of your own (the app
+   refuses the `admin` default in production). `S3_USE_SSL=true` when the
+   storage is reached over a network you do not own. The compose file pins
+   `NODE_ENV: production` and `OIDC_MOCK_ENABLED: "false"` itself, so a `.env`
+   copied from `.env.example` cannot turn it into a mock-auth deployment.
+   Mind name resolution: a service name from a *neighboring* compose
    project (e.g. `db`) only resolves if both projects share a network — otherwise
    use the host's address.
 3. **Frontend:** `frontend/docker-compose.prod.yml` runs this environment's
@@ -365,10 +376,20 @@ owns TLS and the public ports; the app containers publish nothing.
    the same shape with its own per-copy names (`backend-a`, `frontend-a`, …).
 
 `scale/` in this repo is a working example of exactly this shape — two copies of
-each side behind one Caddy — and its `Caddyfile` is a fine starting point for
-your own. Read it as a wiring reference only: it runs with
-`NODE_ENV=development` and mock authentication on purpose, so it is **not** a
-model for a production posture.
+each side behind one Caddy. Read its `Caddyfile` as a wiring reference only, not
+a starting point to copy: it runs with `NODE_ENV=development` and mock
+authentication on purpose, it trusts `X-Forwarded-For` from any private range,
+and it serves the object store's S3 API under the app's own origin
+(`/uploads/*`, read-only there). In production, give the storage its own host
+name rather than a path under the app's domain, and set `trusted_proxies` to
+the addresses of the proxies you actually run.
+
+**Content-Security-Policy.** The frontend sends a nonce-based CSP built at
+runtime from its `VITE_*` values: scripts from its own origin and the per-request
+nonce only; connections to `VITE_GRAPHQL_API_URL`'s origin, `VITE_OIDC_AUTHORITY`'s
+origin and the Sentry DSN's origin; framing by itself only. A proxy should not add
+a second, stricter `Content-Security-Policy` on top. A derived product that loads
+a third-party script or calls another origin extends `src/shared/config/csp.ts`.
 
 ## Where uploaded files live
 

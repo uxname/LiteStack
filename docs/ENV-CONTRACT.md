@@ -49,7 +49,7 @@ Two consequences worth knowing:
 
 | Concern | Backend var | Frontend var | Rule | If mismatched |
 |---|---|---|---|---|
-| **OIDC audience** | `OIDC_AUDIENCE` | `VITE_OIDC_API_RESOURCE` | **Equal.** This is the `aud` claim of the access token the SPA sends. Mismatch → backend rejects every request (401). | Login "succeeds", then **401 on every API call**. |
+| **OIDC audience** | `OIDC_AUDIENCE` | `VITE_OIDC_API_RESOURCE` | **Equal.** This is the `aud` claim of the access token the SPA sends — the API resource indicator, **never** the SPA's client id (an ID token carries the client id as its audience, and the backend refuses tokens with ID-token claims). Mismatch → backend rejects every request (401). | Login "succeeds", then **401 on every API call**. |
 | **OIDC tenant** | `OIDC_ISSUER` | `VITE_OIDC_AUTHORITY` | **Equal.** Both point at the same Logto tenant. (`OIDC_JWKS_URI` = `OIDC_ISSUER` + `/jwks`.) | Tokens issued by the wrong issuer → same wall of 401s; a wrong redirect URI instead fails inside Logto with `redirect_uri_mismatch`. |
 | **CORS + WebSockets** | `CORS_ORIGIN` | `VITE_BASE_URL` | `CORS_ORIGIN` (comma-separated, entries trimmed on load) **must include** the frontend origin. It gates **both** HTTP CORS and the GraphQL **WebSocket handshake**, so a mismatch blocks `/graphql` + `/upload` in the browser **and** silently refuses subscriptions from that origin (403 on upgrade). An empty list allows any origin for **HTTP** (refused in production, but *not* on other environments — set it explicitly on staging); the **WebSocket** handshake is never allow-all — with an empty list only same-origin and Origin-less (non-browser) clients connect. | Browser blocks `/graphql` + `/upload` (CORS errors in console); subscriptions die with **403** on upgrade. The silent trap: outside production an empty backend list allows all origins, so a stack wired to the wrong database looks healthy while writing real users into it. Set `CORS_ORIGIN` explicitly in every environment, staging included, and check the `.env` on the host — the image tag cannot tell you which database it is pointed at. |
 | **GraphQL endpoint** | `PORT` | `VITE_GRAPHQL_API_URL` | The frontend URL's port **must equal** the backend `PORT`, path `/graphql`. Mismatch → data fetching + codegen fail. Moving the backend's public domain is a variable change on the frontend and nothing else — set the new value and restart the container. | Every query/mutation **and codegen fail** with network errors against the wrong port/path. |
@@ -108,7 +108,12 @@ hold once you pick a mode:
 - **Backend (liteend-go) ships `OIDC_MOCK_ENABLED=true`** — local dev bypasses OIDC entirely
   (hardcoded user with ADMIN+USER roles; mock header `x-mock-sub: <id>`). In mock mode the
   backend's `OIDC_ISSUER`/`OIDC_AUDIENCE` are unused, so `doctor.sh`'s OIDC checks against the
-  frontend will report a mismatch you can ignore.
+  frontend will report a mismatch you can ignore. Mock mode is accepted only with
+  `NODE_ENV=development` or `test` — any other value stops the boot, and `NODE_ENV` itself must be
+  `development`, `test` or `production`. `backend/docker-compose.prod.yml` pins
+  `NODE_ENV: production` and `OIDC_MOCK_ENABLED: "false"`, so a copied `.env` cannot switch it on.
+- **`ADMIN_USER` / `ADMIN_PASSWORD`** (backend only) guard the dev pages, which ship in
+  production: with `NODE_ENV=production` the backend refuses the `admin` default.
 - **Frontend `.env.example` ships the shared public dev Logto tenant** (`https://auth.uxna.me/oidc`).
   These are public identifiers, not secrets.
 
