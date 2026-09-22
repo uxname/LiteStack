@@ -7,5 +7,11 @@
 # Meta-repo tooling deps (LikeC4 CLI + scripts)
 /node_modules/
 
+# Local env overrides and browser cookie jars (curl -c) never belong in git.
+.env
+.env.*
+!.env.example
+cookies.txt
+
 # The scale stand is configured by env vars with defaults; a local override is private.
 /scale/.env

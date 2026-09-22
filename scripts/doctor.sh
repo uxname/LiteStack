@@ -99,6 +99,8 @@ BE_AUD="$(val backend OIDC_AUDIENCE)"
 BE_ISS="$(val backend OIDC_ISSUER)"
 BE_CORS="$(val backend CORS_ORIGIN)"
 BE_MOCK="$(val backend OIDC_MOCK_ENABLED)"
+BE_ENV="$(val backend NODE_ENV)"
+BE_ENV="${BE_ENV:-development}"
 
 # S3_ENDPOINT is where the APP connects; S3_PUBLIC_BASE_URL is what the BROWSER
 # resolves, and it is the prefix stored with every uploaded file — a typo is permanent.
@@ -125,6 +127,14 @@ if [[ "$BE_MOCK" == "true" ]]; then
   oidc() { warn "$1 — ignorable: backend runs in OIDC mock mode"; }
 else
   oidc() { fail "$1"; }
+fi
+
+# Mock mode makes every anonymous request an ADMIN. It belongs on a laptop or a
+# test box only, and the backend refuses to boot with it anywhere else.
+if [[ "$BE_MOCK" == "true" && "$BE_ENV" != "development" && "$BE_ENV" != "test" ]]; then
+  fail "OIDC_MOCK_ENABLED=true with NODE_ENV=$BE_ENV — mock auth is allowed only in development or test"
+elif [[ "$BE_MOCK" == "true" ]]; then
+  warn "backend runs in OIDC mock mode: anonymous requests act as ADMIN — never expose it"
 fi
 
 # 1. OIDC audience

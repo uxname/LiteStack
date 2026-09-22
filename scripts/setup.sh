@@ -64,8 +64,8 @@ if [[ "$DO_INSTALL" == 1 ]]; then
   ( cd backend && "$TASK" setup )
   step "Frontend: npm ci"
   ( cd frontend && npm ci )
-  step "Meta root: npm install"
-  npm install
+  step "Meta root: npm ci"
+  npm ci
 else
   echo "  (--no-install: skipped the backend, frontend and meta installs)"
 fi

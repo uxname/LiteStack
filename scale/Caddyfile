@@ -72,7 +72,14 @@
 	# full path, so stripping the prefix (handle_path) or replacing the Host
 	# (header_up Host) turns every signed link into SignatureDoesNotMatch. The
 	# request has to arrive at Garage exactly as the browser sent it.
+	#
+	# Read-only on this origin: the S3 API behind it also answers PUT, DELETE
+	# and multipart — none of which a browser on the app's origin should be able
+	# to send — and nosniff stops a stored object being sniffed into HTML here.
 	handle /uploads/* {
+		@write not method GET HEAD
+		respond @write 405
+		header X-Content-Type-Options nosniff
 		reverse_proxy garage:3900
 	}
 
