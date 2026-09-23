@@ -77,7 +77,7 @@ BE_B_HOST_PORT="$(port SCALE_BACKEND_B_PORT 8082)"
 NET=litestack-scale-net
 # Alpine + curl, the client the stand's own comments suggest. Overridable for an
 # offline machine that has a different curl image cached.
-CLIENT_IMAGE="${SCALE_CLIENT_IMAGE:-curlimages/curl:8.22.0}"
+CLIENT_IMAGE="${SCALE_CLIENT_IMAGE:-curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777}"
 
 # The stand runs with OIDC_MOCK_ENABLED=true and `x-mock-sub` picks the user.
 # This exact value is the backend's own MockSub: any OTHER value falls through
@@ -390,7 +390,7 @@ echo
 # ---------------------------------------------------------------------------
 echo "4. Subscriptions cross the copies"
 NONCE="scale-check-$$-$RANDOM"
-docker run --rm --network litestack-scale-net -e SUB="$SUB" node:24-alpine node -e '
+docker run --rm --network litestack-scale-net -e SUB="$SUB" node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 node -e '
   const s = new WebSocket("ws://backend-b:4000/graphql", "graphql-transport-ws");
   s.onopen = () => s.send(JSON.stringify({type: "connection_init", payload: {"x-mock-sub": process.env.SUB}}));
   s.onmessage = (e) => { console.log(e.data);
