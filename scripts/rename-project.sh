@@ -77,13 +77,15 @@ OPS=(
   "backend/Taskfile.yml|liteend:|$NAME:"
   "frontend/package.json|litefront:|$NAME:"
   "frontend/src/features/theme/model/store.ts|litefront-theme|$NAME-theme"
-  # The theme key lives in THREE places: the store above, the blocking pre-paint
-  # script in __root.tsx, and the screenshot harness that seeds localStorage.
-  # Renaming only the store leaves the script reading the old key, so dark-mode
-  # users get a flash of the light theme — the exact FOUC that script exists to
-  # prevent — and the harness silently stops capturing the dark theme at all.
+  # The theme key lives in FOUR places: the store above, the blocking pre-paint
+  # script in __root.tsx, and the two e2e specs that seed localStorage (the
+  # screenshot harness and the axe check). Renaming only the store leaves the
+  # script reading the old key, so dark-mode users get a flash of the light
+  # theme — the exact FOUC that script exists to prevent — and the specs stop
+  # seeing the dark theme at all.
   "frontend/src/routes/__root.tsx|litefront-theme|$NAME-theme"
   "frontend/tests/e2e/agent-screens.spec.ts|litefront-theme|$NAME-theme"
+  "frontend/tests/e2e/a11y.spec.ts|litefront-theme|$NAME-theme"
 )
 # Brand identity (token replacement preserves surrounding text). The list is SEARCHED,
 # not kept by hand: a fixed list drifts, and every drift so far left a brand string in a
