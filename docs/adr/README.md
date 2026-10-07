@@ -1,8 +1,8 @@
 # docs/adr — architecture decision records
 
 An ADR records **one decision that is expensive to reverse**, together with the reason it
-was made. Rules live in `AGENTS.md` and `.agents/*.md`; this folder answers the question rules never do —
-*why is it like this?*
+was made. Rules live in `AGENTS.md` and `.agents/*.md`; this folder answers the question
+rules never do — *why is it like this?*
 
 Without it, a decision survives only as a rule ("there is no CI"), and a rule without a
 reason is the thing someone "fixes" six months later.

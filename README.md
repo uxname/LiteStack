@@ -75,7 +75,7 @@ It worked when both answer: `http://localhost:3000` — the frontend page;
 
 | file | what it owns |
 |---|---|
-| [`AGENTS.md`](./AGENTS.md) | entry point for agents: the meta model, cross-project rules, skills |
+| [`AGENTS.md`](./AGENTS.md) | entry point for agents: the meta model, the every-task rules, routing into `.agents/` |
 | [`docs/TEAM.md`](./docs/TEAM.md) | how work gets done here |
 | [`docs/ENV-CONTRACT.md`](./docs/ENV-CONTRACT.md) | every variable, and which values must agree across the two sides |
 | [`docs/DEPLOY.md`](./docs/DEPLOY.md) | the deploy runbook |

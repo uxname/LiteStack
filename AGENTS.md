@@ -22,7 +22,8 @@ component or a migration at this root means you are in the wrong folder.
    `task check` in `backend/`, `npm run check` in `frontend/`, the hook in
    [lefthook.yml](./lefthook.yml) here. There is no CI
    ([ADR-0001](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)): the hooks are the only
-   gate, so every commit and push runs them in full.
+   gate, so every commit and push runs them in full — `--no-verify` skips the whole
+   guarantee.
 
 ## Where to go
 

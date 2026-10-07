@@ -1,7 +1,8 @@
 # Team guide — working on LiteStack-derived projects
 
 How a team creates and evolves a product built from LiteStack. Read this with the root
-`AGENTS.md` (operating modes, git topology) — this doc covers the team process layered on top.
+`AGENTS.md` and `.agents/OPERATING-MODE.md` (operating modes, git topology) — this doc
+covers the team process layered on top.
 
 ## Repo model: one shared meta per product (recommended)
 
