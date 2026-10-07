@@ -59,21 +59,18 @@ there is no CI behind them.
 ## Step 4: Record the updated pointers in the meta-repo
 
 ```bash
-git add backend frontend       # stage the new submodule commit pointers
-git add -A                     # also stage any changed meta files (AGENTS.md, docs/retro/, etc.)
 git status                     # review — never stage secrets (.env, credentials)
+git add backend frontend       # stage the new submodule commit pointers
+git add <file>...              # stage changed meta files by name (AGENTS.md, docs/retro/, etc.)
 ```
+
+Stage by name, not `git add -A`: after subagents run, the index may hold changes nobody
+asked for (root `AGENTS.md` → Guardrail).
 
 ## Step 5: Commit the meta-repo
 
-Conventional commits format:
-
-```
-<type>(<scope>): <short description>
-```
-
-Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`. For meta-repo commits the scope
-is usually the area (`agents`, `submodules`, `docs`) or omitted. Example:
+Format: [`.agents/CODING_STANDARDS.md` → Commit messages](../../../.agents/CODING_STANDARDS.md).
+Example:
 
 ```
 chore(submodules): bump backend + frontend for user-avatar feature

@@ -1,7 +1,7 @@
 # docs/adr — architecture decision records
 
 An ADR records **one decision that is expensive to reverse**, together with the reason it
-was made. Rules live in `AGENTS.md`; this folder answers the question rules never do —
+was made. Rules live in `AGENTS.md` and `.agents/*.md`; this folder answers the question rules never do —
 *why is it like this?*
 
 Without it, a decision survives only as a rule ("there is no CI"), and a rule without a
@@ -16,7 +16,7 @@ expect to find and won't).
 
 Do **not** write one for: naming, formatting, a library swap with no ripple, anything a
 lint rule already enforces, or a decision that is cheap to revisit. Those belong in
-`AGENTS.md` or in the sub-project's `.agents/*.md`.
+`.agents/CODING_STANDARDS.md` or in the sub-project's `.agents/*.md`.
 
 Rule of thumb: if a future agent could break it by "improving" the code, it needs an ADR.
 

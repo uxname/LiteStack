@@ -1,115 +1,53 @@
-# AGENTS.md — LiteStack (meta-project)
+# AGENTS.md — LiteStack (meta-repo)
 
-LiteStack is a **full-stack boilerplate**, not a runnable product. It bundles two real
-projects as git submodules and adds a thin coordination layer:
+LiteStack is a full-stack boilerplate: two projects as git submodules — `backend/`
+(liteend-go) and `frontend/` (litefront), each its own repo — plus this thin layer that
+only **coordinates** them. Application code always lives in a submodule: a resolver, a
+component or a migration at this root means you are in the wrong folder.
 
-- **`backend/`** — the backend project (**liteend-go**, its own repo). All server code.
-- **`frontend/`** — the frontend project (**litefront**, its own repo). All browser code.
-- **LiteStack** (this repo) — owns **no application code**. It only coordinates: which
-  project to touch, how the two connect, and how to commit across them.
+## Every task
 
-**This file is the entry point, not the whole manual.** Read the file that matches your
-task — don't read them all.
+1. **Lessons first.** If `docs/retro/` holds dated files, read their "Rule" lines before
+   touching code ([how](./docs/retro/README.md)).
+2. **Go to the box that owns the change** (table below) and read that sub-project's
+   `AGENTS.md`; it routes on to its `.agents/*.md`. Inside a sub-project, its rules win
+   over this file.
+3. **Write to the standard.** Code, tests, log lines and commit messages follow
+   [.agents/CODING_STANDARDS.md](./.agents/CODING_STANDARDS.md). Everything committed is
+   English, whatever language the chat is in.
+4. **A structural decision gets an ADR the same session**, before the code lands —
+   criteria in [docs/adr/README.md](./docs/adr/README.md). Before changing an area, read
+   the ADRs that cover it.
+5. **Done means the gate is green by exit status**, never by the tail of its output:
+   `task check` in `backend/`, `npm run check` in `frontend/`, the hook in
+   [lefthook.yml](./lefthook.yml) here. There is no CI
+   ([ADR-0001](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)): the hooks are the only
+   gate, so every commit and push runs them in full.
 
-## Three boxes — put each change in the right one
+## Where to go
 
-| You are changing… | Go to | Why |
-|---|---|---|
-| API, database, business logic, background jobs, server-side GraphQL | **`backend/`** | it owns all server behaviour |
-| UI, pages, routing, client state, styling, GraphQL the browser sends | **`frontend/`** | it owns everything in the browser |
-| How the two fit together, this guide, cross-project skills, submodule pointers | **LiteStack root** | the meta-project only coordinates |
-
-Rule of thumb: **never put application code in the meta-project.** Writing a resolver, a
-component or a migration means you are in the wrong folder — go into a submodule.
-
-## 🔴 Start here
-
-### 1. Read `docs/retro/*.md` — rules this project already paid for; empty in the template, so usually nothing to read
-
-### 2. Read the sub-project's own AGENTS.md
-
-`backend/AGENTS.md` or `frontend/AGENTS.md` is the source of truth for that side, and
-each routes you onward to its `.agents/*.md`. This root file covers only what spans
-**both**. **On any conflict inside a sub-project, that sub-project wins.**
-
-### 3. End of session — write a retrospective before committing
-
-Run the **`/retro` skill** to record what went badly into `docs/retro/`. The `/commit`
-skill runs it automatically as its first step. This is what closes the loop: today's
-mistakes become tomorrow's rules.
-
-## Where to look
-
-| Your task | Read |
+| Your task | Go to |
 |---|---|
-| Decide where to commit and push; git/submodule mechanics | [.agents/OPERATING-MODE.md](./.agents/OPERATING-MODE.md) |
-| The back ↔ front seams (codegen, auth audience, CORS + WebSockets), shared conventions, project map | [.agents/CROSS-PROJECT.md](./.agents/CROSS-PROJECT.md) |
-| Start a real product from this template | [.agents/DERIVE.md](./.agents/DERIVE.md) |
-| Which env vars must match across sides | [docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md) |
-| Deploy it: local Docker, Dokploy production, registry images | [docs/DEPLOY.md](./docs/DEPLOY.md) |
-| Team process: repo model, commit flow, gates | [docs/TEAM.md](./docs/TEAM.md) |
-| **Why** something is the way it is — repo topology, no CI, living diagrams | [docs/adr/](./docs/adr/) |
-| "See" what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
-| Triage a failure from the logs — which line to grep, how the two sides join | [backend/docs/DEBUGGING.md](./backend/docs/DEBUGGING.md) + the frontend file above |
-| Anything backend-specific | [backend/AGENTS.md](./backend/AGENTS.md) |
-| Anything frontend-specific | [frontend/AGENTS.md](./frontend/AGENTS.md) |
+| API, database, business logic, jobs, server-side GraphQL | [backend/AGENTS.md](./backend/AGENTS.md) |
+| UI, routing, client state, styling, GraphQL the browser sends | [frontend/AGENTS.md](./frontend/AGENTS.md) |
+| A feature on both sides | backend first — the `full-stack-feature` skill |
+| A back ↔ front **seam** (codegen, auth audience, CORS + WebSockets, `requestId`), or who owns a shared value | [.agents/CROSS-PROJECT.md](./.agents/CROSS-PROJECT.md) |
+| An **env var** both sides must agree on | [docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md) |
+| **Commit or push**: template vs derived mode decides the remote | the `commit` skill; rules in [.agents/OPERATING-MODE.md](./.agents/OPERATING-MODE.md) |
+| **Derive** a real product from the template | [.agents/DERIVE.md](./.agents/DERIVE.md) |
+| A change to boundaries, protocols or components — the **architecture model** moves in the same change | `docs/architecture/likec4/` ([ADR-0003](./docs/adr/0003-living-likec4-model.md)) |
+| **Deploy**: local Docker, Dokploy, registry images | [docs/DEPLOY.md](./docs/DEPLOY.md) |
+| **First-time setup** of a clone, toolchain | [README.md](./README.md) → "Getting started" |
+| **See** what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
+| **Triage** a failure from the logs | [backend/docs/DEBUGGING.md](./backend/docs/DEBUGGING.md), then the row above |
+| **Team process**, or adding agent guidance or a skill | [docs/TEAM.md](./docs/TEAM.md) |
 
-First-time setup of an existing clone: `scripts/setup.sh` (see `README.md`). It fetches
-dependencies only — configure each side yourself (copy its `.env.example` to `.env`, or
-export the variables: both are supported, see
-[docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md)), then run `scripts/doctor.sh`.
+## Guardrail
 
-## Rules that hold everywhere
+After subagents run, the git index is untrusted: `git status` in all three repos,
+`git reset` what you did not stage, then stage deliberately.
 
-1. **One gate per side, and it is not optional**: `task check` in `backend/`,
-   `npm run check` in `frontend/`, and the meta-repo has its own small one —
-   `npm run likec4:validate` + `npm run secrets`
-   (gitleaks over the staged diff, skipped when not installed). **There is no CI** —
-   every gate lives in a git hook, so `--no-verify` has nothing behind it.
-2. **Tests are non-optional on both sides**, and coverage floors are machine-enforced.
-   Ratchet them up, never down; add the test instead of lowering the bar.
-3. **English-only in the repo** — code, comments, identifiers, commit messages, docs.
-4. **Never commit application code to the meta-repo.**
-5. **Check a gate's exit status, not the tail of its output.** A piped `| tail` shows a
-   happy ending even when the command failed.
-6. **After subagents run, treat the git index as untrusted**: `git status` in all three
-   repos, `git reset` what you did not stage, then stage deliberately.
-7. **Commit messages are Conventional Commits, in English**: `type(scope): summary`, all
-   lower case — `docs(adr):`, `chore(submodules):`, `fix(scripts):`, `feat(likec4):`. The
-   scope is the area you touched; drop it only when the change is genuinely global. No
-   discipline beyond that is required of the history — the gates are what guarantee
-   quality ([ADR-0001](./docs/adr/0001-no-ci-gates-live-in-git-hooks.md)).
-8. **A failure has to be findable in the logs.** `ERROR` is reserved for what the
-   system did wrong, `WARN` for what the caller did wrong, and every failure path leaves
-   exactly one line — never at `INFO`, never nowhere. The backend's `request_id` is the
-   key that joins the two sides' logs and must survive the trip in both directions
-   ([ADR-0004](./docs/adr/0004-logs-are-the-diagnostic-surface.md)).
-9. **A structural decision gets an ADR in the same session that makes it.** Repo topology,
-   a layer boundary, a protocol between the two sides, a security posture that will look
-   like a bug to the next reader, a deliberate omission — write it down in
-   [docs/adr/](./docs/adr/) before the code lands. A rule without its reason is what
-   someone "fixes" six months later. Naming, formatting and library swaps are **not**
-   ADR material — they belong in this file or in a sub-project's `.agents/*.md`.
+## Talking to the user
 
-## How to talk to the user
-
-- **Use the user's language.** Reply in whatever language they write to you in.
-- **Explain simply, like to a junior developer.** Short sentences. Define jargon the
-  first time. Prefer concrete steps and examples. When you decide something, say what you
-  did and why in one plain line.
-
-## Skills
-
-Four skills live in `.claude/skills/`, all genuinely cross-project:
-
-| Skill | Use it to… |
-|---|---|
-| `full-stack-feature` | Orchestrate a feature across both sides: backend first → start backend → `npm run gen` → UI |
-| `commit` | Commit at the meta level: inside each changed submodule, then record the pointers, pushing per the operating mode |
-| `retro` | Write a session retrospective to `docs/retro/` (runs automatically as `commit`'s first step) |
-| `new-project` | Bootstrap a new product as a meta+submodules pair in DERIVED mode |
-
-The sub-projects ship **no** skills: their workflows live in `AGENTS.md` +
-`.agents/*.md`, next to the code they describe. When you add a genuinely cross-project
-skill, put it here; anything one-sided belongs in that sub-project's `.agents/` file
-instead, so there is exactly one place per topic.
+Explain as to a junior developer: short sentences, jargon defined on first use, concrete
+steps. Each decision gets one plain line — what you did and why.
