@@ -54,14 +54,3 @@ Each submodule is a **separate git repository** with its own history and remotes
 Flow per change: `cd backend` → edit → run its gate → commit (+push) → `cd ..` →
 `git add backend` → commit (+push) the meta-repo. The **`commit` skill** automates
 this, retrospective included.
-
-**Never put application code in the meta-project.** If you are writing a resolver, a
-component or a migration, you are in the wrong directory.
-
-## Two traps worth knowing
-
-- **Treat the git index as untrusted after subagents run.** Agents that were told only
-  to write files have staged and deleted things before. Run `git status` in all three
-  repos afterwards, `git reset` anything you did not stage, then stage deliberately.
-- **Check a gate's exit status, not the tail of its output.** `task check | tail` prints
-  a happy-looking ending even when the task failed.

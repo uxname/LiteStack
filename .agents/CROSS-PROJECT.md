@@ -80,22 +80,11 @@ Reading the logs: `backend/docs/DEBUGGING.md`, `frontend/.agents/OBSERVABILITY.m
 
 ## Shared conventions
 
+How code, tests, log lines and commit messages are written:
+[CODING_STANDARDS.md](./CODING_STANDARDS.md). What else spans both sides:
+
 - **Build tools differ by stack**: backend = Go + `task` (Taskfile); frontend = npm.
   Don't assume npm on the backend — it has no `package.json`.
-- **One gate per side**: `task check` inside `backend/`, `npm run check` inside
-  `frontend/`. Run the right one before declaring done. On the frontend never run `lint`
-  and `ts:check` separately (that skips knip, steiger, trio and Biome's fixes).
-- **TDD on both sides, machine-enforced.** Frontend: every `shared/ui` component is a
-  story+test trio, plus coverage floors. Backend: per-package coverage floors.
-  **There is no CI** — every gate lives in the submodules' git hooks, so `--no-verify`
-  bypasses all of it. Don't. Ratchet floors up, never down. Details:
-  `frontend/.agents/TESTING.md`, `backend/.agents/TESTING.md`.
-- **English-only in the repo.** Code, comments, identifiers, commit messages and docs
-  are English. (Chatting with the user follows the user's language.)
-- **The log level means severity, on both sides.** `ERROR` is reserved for what the
-  system did wrong (5xx, internal GraphQL errors, failed jobs/queries, a crashed
-  render); a client fault is `WARN`. Every failure path leaves exactly one line, and
-  never at `INFO` — see [meta ADR-0004](../docs/adr/0004-logs-are-the-diagnostic-surface.md).
 - **Formatters must not be shared**: backend = gofumpt + golangci-lint; frontend =
   Biome (double quotes). Never copy formatting or lint config across the boundary.
 - **Run the projects separately**, each per its own `AGENTS.md`; there is no root

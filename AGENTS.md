@@ -44,8 +44,9 @@ component or a migration at this root means you are in the wrong folder.
 
 ## Guardrail
 
-After subagents run, the git index is untrusted: `git status` in all three repos,
-`git reset` what you did not stage, then stage deliberately.
+After subagents run, the git index is untrusted — agents told only to write files have
+staged and deleted things before. `git status` in all three repos, `git reset` what you
+did not stage, then stage deliberately.
 
 ## Talking to the user
 
