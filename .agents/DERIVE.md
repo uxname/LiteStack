@@ -26,9 +26,9 @@ The mechanical core, if you do it by hand:
    Always run `--dry-run` first and read it. After renaming, run both projects' gates
    **including the E2E suite**: three test files assert brand strings (two unit, one
    E2E), so a partial rename shows up as failing tests — one only in `verify:push`.
-5. **Install and wire env:** `scripts/setup.sh`, then copy `.env.example` → `.env` in each
-   submodule (the meta `setup.sh` does not create them) and confirm `scripts/doctor.sh`
-   passes — see [../docs/ENV-CONTRACT.md](../docs/ENV-CONTRACT.md).
+5. **Install and wire env:** `scripts/setup.sh` — it copies each submodule's
+   `.env.example` → `.env` (keeping existing ones) and runs `scripts/doctor.sh`; fill in
+   the values until doctor passes — see [../docs/ENV-CONTRACT.md](../docs/ENV-CONTRACT.md).
 6. From here every commit and push targets **your** repos (see
    [OPERATING-MODE.md](./OPERATING-MODE.md)).
 

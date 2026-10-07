@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Write a session retrospective to docs/retro/ — what went badly this session, the root cause, and the rule to prevent repeating it. Use at the end of a work session before committing, when the user asks to "write a retro", "record a retrospective", "capture lessons", or "/retro". Runs automatically as the first step of the meta-level /commit skill.
+description: Write a session retrospective to docs/retro/ — what went badly this session, the root cause, and the rule to prevent repeating it. Use at the end of a work session before committing, when the user asks to "write a retro", "record a retrospective", "capture lessons", or "/retro". The meta-level /commit skill runs it first when the session went wrong.
 ---
 
 The point of a retro is **future prevention**, not a changelog. Capture what went *wrong*
