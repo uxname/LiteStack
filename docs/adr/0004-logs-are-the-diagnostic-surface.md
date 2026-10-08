@@ -80,6 +80,6 @@ sides:
 - Every payload type in `internal/queue` must keep a `request_id` field; asynq has no
   headers, so correlation rides in the payload or not at all.
 - Frontend code may not call `captureException` directly; `logError` is the sink. Nothing
-  enforces this mechanically — it is a review rule, recorded in `frontend/AGENTS.md`.
+  enforces this mechanically — it is a review rule, recorded in `frontend/.agents/CODING_STANDARDS.md`.
 - We still cannot answer "how many" or "how often" without adding metrics. That is the
   cost knowingly accepted here.
