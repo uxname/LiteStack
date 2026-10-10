@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Commit changes across the LiteStack meta-repo and its submodules. Use this when the user asks to commit, save changes to git, or "commit this" while working at the LiteStack root. It commits inside each changed submodule first, then records the updated submodule pointers in the meta-repo, and pushes according to the operating mode (template vs derived).
+description: Commit changes across the LiteStack meta-repo and its submodules. Use when the user asks to commit or push from the LiteStack root. It commits inside each changed submodule first, then records the updated submodule pointers in the meta-repo, and pushes according to the operating mode (template vs derived).
 ---
 
 The user wants to commit work done across LiteStack. Because `backend/` and `frontend/`
@@ -12,7 +12,8 @@ never pushed.
 
 Run the **`/retro` skill** only if something actually went wrong: a command failed, a
 change had to be rolled back, or the approach changed mid-way. A one-file documentation
-fix does not need one. The retro file is a meta-repo file; it gets staged in Step 4–5.
+fix does not need one. Whether its file is staged in Step 4 depends on the mode — the
+retro skill's Step 4 decides.
 
 ## Step 1: Detect the operating mode
 
@@ -24,7 +25,8 @@ git config -f .gitmodules submodule.litefront.url
 ```
 
 - URLs point at canonical `uxname/*` → **TEMPLATE mode** (push submodules to upstream).
-- URLs point at your own repos → **DERIVED mode** (push submodules to your repos).
+- URLs point at your own repos → **DERIVED mode** (push submodules to your repos — every
+  push goes to the team's remotes; the `uxname/*` upstreams receive only template work).
 
 If you are unsure which mode applies or whether you should push, ask the user in plain
 language before pushing.
@@ -45,13 +47,15 @@ cd <submodule>
 # Run that project's own gate FIRST, from its AGENTS.md:
 #   backend  → task check      (and task test:cov before pushing)
 #   frontend → npm run check   (verify:push runs on pre-push)
-git add -A && git commit       # conventional commits; the pre-commit hook re-runs the gate
+git status                     # review what is there before staging
+git add <file>...              # stage by name, as in Step 4
+git commit                     # conventional commits; the pre-commit hook re-runs the gate
 git push                       # push to the submodule's remote (per the detected mode)
 cd ..
 ```
 
-Do not skip the submodule's pre-commit / pre-push hooks. Never use `--no-verify` —
-there is no CI behind them.
+Every commit and push runs the hooks in full — they are the only gate, there is no CI
+behind them (`--no-verify` is never an option).
 
 > Check the **exit status** of each gate, not the tail of its output. A
 > `task check | tail` reports success even when the task failed.
@@ -89,10 +93,3 @@ git push
 In TEMPLATE mode push to the canonical meta repo (needs access). In DERIVED mode push to
 your own meta repo. If there is no remote yet, say so and stop.
 
-## What NOT to do
-
-- Never push a derived project's submodule changes to the `uxname/*` upstreams.
-- Never commit the meta-repo pointer before the submodule commit is pushed — the pointer
-  would reference a commit nobody else can fetch.
-- Never skip hooks with `--no-verify`.
-- Never `git add` unreviewed files that may contain secrets (`.env`, keys, credentials).

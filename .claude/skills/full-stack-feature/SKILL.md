@@ -1,6 +1,6 @@
 ---
 name: full-stack-feature
-description: Orchestrate a feature that spans both the backend (backend) and the frontend (frontend). Use this when a change needs work on both sides — e.g. "add a field to the API and show it in the UI", "new endpoint and a screen for it", "expose X in GraphQL and render it". Runs backend first, regenerates frontend types, then builds the UI. Delegates to each sub-project's own AGENTS.md instructions.
+description: Order a feature that needs changes in both backend/ and frontend/ — e.g. a new GraphQL field shown in the UI. Runs the backend first, regenerates the frontend types, then builds the UI.
 ---
 
 The user wants a feature touching **both** sides. This skill only decides the order; the
@@ -21,8 +21,3 @@ Why backend first, and the full ordering rule: [`.agents/CROSS-PROJECT.md`](../.
    `@generated/*`, `npm run check` green.
 5. **Commit** with the meta **`/commit`** skill — submodules first, then the pointers.
 
-## What not to do
-
-- Don't build the frontend against a schema that does not exist yet.
-- Don't put feature code in the meta-repo; it only coordinates and records pointers.
-- Don't commit submodule work as meta-repo blobs — commit inside each submodule.

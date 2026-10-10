@@ -1,6 +1,6 @@
 ---
 name: new-project
-description: Create a NEW project (backend + frontend pair) from the LiteStack templates as a meta-repo with submodules, in DERIVED mode. Use when the user wants to start a brand-new product/app from LiteStack — "new project from the template", "scaffold a new app", "bootstrap a new LiteStack project". Produces the same meta+submodules shape as LiteStack, repointed at the team's own repos, renamed, installed, and wired. Replaces the removed kodu start/*-init pipeline.
+description: Create a new product (backend + frontend pair) from the LiteStack templates — a meta-repo with submodules in DERIVED mode, repointed at the team's own repos, renamed, installed and running. Use when the user wants to start a new project or app from LiteStack.
 ---
 
 The deliverable is a meta-repo with `backend/` and `frontend/` submodules pointing at the
