@@ -142,9 +142,8 @@ copy but not another, are the usual first symptom (see
 
 ### 2. Copies share the database's connection limit
 
-`DB_POOL_MAX` (default 10) is the pool size of **one** copy. The sizing rule,
-written the same way in `backend/.env.example`, `internal/config/config.go` and
-`internal/db/pool.go`:
+`DB_POOL_MAX` (default 10) is the pool size of **one** copy. The sizing rule
+(owned by `backend/.agents/OPERATIONS.md`):
 
 > replicas x `DB_POOL_MAX` must stay below the Postgres `max_connections` limit
 > (default 100)

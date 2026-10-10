@@ -25,6 +25,8 @@ pairs. This skill covers only the parts that need a human.
 3. **Repoint** submodules and remotes at the three URLs, per `.agents/DERIVE.md`. When
    `.gitmodules` no longer points at `uxname/*`, the project is in DERIVED mode
    (`.agents/OPERATING-MODE.md`) and nothing will ever push to the templates again.
+   Done when both submodule URLs and all three `origin` remotes point at the team's
+   repos — a real product left on `uxname/*` pushes into the public templates.
 4. **Rename**:
    `scripts/rename-project.sh --name <name> --display "<Brand>" --repo-owner <owner>` —
    before installing, because it rewrites the Go module path and package names.
@@ -43,8 +45,3 @@ auth means `OIDC_MOCK_ENABLED=false` and the backend's `OIDC_ISSUER`/`OIDC_JWKS_
 `OIDC_AUDIENCE` matching the frontend's `VITE_OIDC_AUTHORITY`/`VITE_OIDC_API_RESOURCE` —
 same tenant, same API resource. Tell the user it must be swapped before production.
 
-## Never
-
-- Leave `.gitmodules` pointing at `uxname/*` for a real product — that pushes the team's
-  product into the public templates.
-- Commit a `.env`. Only `.env.example` is tracked.
