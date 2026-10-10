@@ -1,58 +1,73 @@
 ---
 name: retro
-description: Write a session retrospective to docs/retro/ — what went badly this session, the root cause, and the rule to prevent repeating it. Use at the end of a work session before committing, when the user asks to "write a retro", "record a retrospective", "capture lessons", or "/retro". The meta-level /commit skill runs it first when the session went wrong.
+description: Write a session retrospective to docs/retro/ — what went wrong, its root cause, and the check or rule that stops it happening again. Use at the end of a session where a command failed, work was redone or an assumption proved wrong, or when the user asks for a retro or lessons learned.
 ---
 
-The point of a retro is **future prevention**, not a changelog. Capture what went *wrong*
-this session so the next agent — which reads `docs/retro/*` before touching code — does not
-repeat it. Successes are irrelevant here.
+A retro exists for **prevention**: the next agent reads `docs/retro/` before touching code
+(root `AGENTS.md`, step 1), so every lesson must change what that agent does. The strongest
+prevention is a **check** — a gate goes red on the mistake whether or not anyone read the
+lesson. A written **rule** covers what no tool can see.
 
-## Step 1: Reconstruct what went badly this session
+## Step 1: List what went wrong
 
-Look back over the session and list only the **mistakes, dead ends, and wrong assumptions**.
-Concrete signals to mine:
+Mine the session for mistakes, dead ends and wrong assumptions:
 
-- Commands/tests that failed and why (quote the error).
-- Wrong files edited, paths assumed that didn't exist, wrong submodule touched.
-- Doc/convention misread (e.g. wrong Biome quote style, skipped `npm run check`, used `--no-verify`).
-- A fix that had to be redone, reverted, or that broke something else.
-- Time lost to a wrong mental model of how the code works.
+- commands and tests that failed (quote the error);
+- wrong files edited, paths that did not exist, the wrong submodule touched;
+- a convention misread (wrong Biome quote style, `lint` run instead of `npm run check`,
+  `--no-verify`);
+- a fix that was redone, reverted, or broke something else;
+- time lost to a wrong model of how the code works.
 
-If the session was genuinely clean (no mistakes), say so to the user and **do not** write an
-empty retro file. A retro with no problems is noise.
+Done when every such event of the session is on the list with its evidence. An empty list
+means the session was clean: tell the user so and stop — a retro without a problem is noise.
 
-## Step 2: Pick the area and a filename
+## Step 2: Classify each problem — check or rule
 
-Decide `area`: `backend` (only `backend/` touched), `frontend` (only `frontend/`), `meta`
-(only meta-repo files), or `cross` (spanned both submodules or the seam between them).
+- **Mechanical** — a fixed pattern a tool can see: a banned API or import, a file in the
+  wrong place, a stale generated file, a skipped command. Its prevention is a **check**: a
+  linter rule (golangci-lint, go-arch-lint, Biome, steiger), a lefthook command, or a test.
+  Start from the gates that already run ([`docs/TEAM.md`](../../../docs/TEAM.md) →
+  "Quality gates"): a check that exists but is unwired, skipped or silently green is the
+  finding itself, and the fix is to repair it.
+- **Judgement call** — needs context to see: the wrong layer, code that clashes with its
+  surroundings, a misread requirement. Its prevention is a **rule**. A rule that should
+  bind all future work, beyond warning about this one trap, belongs in the owning
+  `CODING_STANDARDS.md` or `.agents/*.md` — propose moving it there.
 
-```bash
-date +%F        # use this real date — never guess
-```
-
-Filename: `docs/retro/<YYYY-MM-DD>-<short-slug>.md`. Slug = session topic, kebab-case.
-If a file for today's topic already exists, append to it rather than overwriting.
+Done when every problem carries one label and a concretely named prevention.
 
 ## Step 3: Write the file
 
-Copy `docs/retro/TEMPLATE.md` exactly. Fill every section:
+Pick `area`: `backend`, `frontend`, `meta`, or `cross` (both submodules or the seam
+between them). Take the date from `date +%F`. Filename:
+`docs/retro/<YYYY-MM-DD>-<short-slug>.md`, slug = session topic in kebab-case; if today's
+file for this topic exists, append to it.
 
-- **What went badly** — one concrete fact per bullet.
-- **Root cause** — the underlying reason, not the symptom.
-- **Rule — do this next time** — one imperative line per problem. This is the payload the
-  next agent acts on. Make it specific and checkable (e.g. "Run `npm run check` in
-  `frontend/` before declaring done — `lint` alone skips knip/steiger").
+Copy `docs/retro/TEMPLATE.md` exactly and fill every section, one fact per bullet:
 
-Frontmatter `date`, `topic`, `area`, `tags` are mandatory — the reader subagent filters on them.
+- **What went badly** — the problems from Step 1.
+- **Root cause** — why it happened, beneath the symptom.
+- **Rule — do this next time** — one imperative, checkable line per problem. A judgement
+  call states the behaviour: "Run `npm run check` in `frontend/` before declaring done —
+  `lint` alone skips knip and steiger". A mechanical problem names its check: "Add
+  `log.Printf` to the `forbidigo` list in `backend/.golangci.yml`", or "Enforced by
+  `<check>`" once the check exists.
 
-## Step 4: Confirm
+Frontmatter `date`, `topic`, `area`, `tags` is mandatory — readers filter on it. Quote
+evidence with secrets redacted: write `<REDACTED>` in place of any token, password or
+`.env` value.
 
-Tell the user the path written and a one-line summary of the rules captured. Do **not** commit
-here — the `/commit` skill stages and commits `docs/retro/` with the rest of the session.
+Done when every problem has its root cause and its rule.
 
-## What NOT to do
+## Step 4: Hand off
 
-- Don't record successes or a play-by-play of the session.
-- Don't invent generic best-practice advice — only lessons from mistakes that actually happened.
-- Don't write secrets (`.env`, tokens, credentials) into the retro.
-- Don't leave a problem without a matching rule.
+Tell the user the path, then the proposed checks and rule moves, most severe first. Build
+a check once the user agrees to it — it is a code change with its own gate and its own
+commit.
+
+The commit depends on the operating mode ([`.agents/OPERATING-MODE.md`](../../../.agents/OPERATING-MODE.md)):
+
+- **DERIVED** — the `/commit` skill stages `docs/retro/` with the rest of the session.
+- **TEMPLATE** — `docs/retro/` stays empty on purpose ([README](../../../docs/retro/README.md)):
+  carry each lesson into its check or its owning doc, then delete the file before staging.

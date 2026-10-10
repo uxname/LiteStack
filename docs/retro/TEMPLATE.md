@@ -13,5 +13,5 @@ tags: [<keyword>, <keyword>]
 - <why it happened — wrong assumption, missing check, misread doc, etc.>
 
 ## Rule — do this next time
-- <imperative one-liner a future agent can act on>
+- <imperative one-liner a future agent can act on; for a mechanical mistake, the check to add>
 - <one rule per problem above>
