@@ -38,6 +38,7 @@ component or a migration at this root means you are in the wrong folder.
 | **Derive** a real product from the template | [.agents/DERIVE.md](./.agents/DERIVE.md) |
 | A change to boundaries, protocols or components — the **architecture model** moves in the same change | `docs/architecture/likec4/` ([ADR-0003](./docs/adr/0003-living-likec4-model.md)) |
 | **Deploy**: local Docker, Dokploy, registry images | [docs/DEPLOY.md](./docs/DEPLOY.md) |
+| **Observability**: errors, logs, metrics, traces, product analytics, alerts — deploy the shared stack, connect a project, read its data | [docs/observability/](./docs/observability/README.md) |
 | **First-time setup** of a clone, toolchain | [README.md](./README.md) → "Getting started" |
 | **See** what the frontend does at runtime (you have no browser) | [frontend/.agents/OBSERVABILITY.md](./frontend/.agents/OBSERVABILITY.md) |
 | **Triage** a failure from the logs | [backend/docs/DEBUGGING.md](./backend/docs/DEBUGGING.md), then the row above |

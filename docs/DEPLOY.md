@@ -16,13 +16,15 @@ against `backend/Taskfile.yml`, `backend/docker-compose*.yml`,
   names *the code* and nothing else: promote the same tag from dev to staging to
   production and change only the variables around it.
   - The frontend's public values (`VITE_OIDC_*`, `VITE_GRAPHQL_API_URL`,
-    `VITE_BASE_URL`, `VITE_SENTRY_DSN`, `VITE_APP_VERSION`) are read at boot by
-    `frontend/src/shared/config/env.ts`, which is the single list of them.
-  - Four frontend values belong to the **build** instead, on purpose:
+    `VITE_BASE_URL`, `VITE_SENTRY_DSN`, `VITE_APP_VERSION`, `VITE_APP_ENV`) are
+    read at boot by `frontend/src/shared/config/env.ts`, which is the single list
+    of them.
+  - Five frontend values belong to the **build** instead, on purpose:
     `VITE_MOCK_AUTH` (fake logins must not be switchable on a running container)
-    and `VITE_SENTRY_ORG` / `VITE_SENTRY_PROJECT` / `VITE_SENTRY_AUTH_TOKEN`
-    (they only upload source maps while building, and the token is a real secret
-    that must never reach a container). Set those in the build environment.
+    and `VITE_SENTRY_URL` / `VITE_SENTRY_ORG` / `VITE_SENTRY_PROJECT` /
+    `VITE_SENTRY_AUTH_TOKEN` (they only upload source maps while building, and
+    the token is a real secret that must never reach a container) — see
+    [Source maps](#source-maps-for-the-error-tracker).
 - **Neither production compose publishes a host port.** Both join an *external*
   network the reverse proxy already runs on, named by `PROXY_NETWORK`
   (default `dokploy-network`), and the proxy reaches the container directly —
@@ -248,8 +250,8 @@ Traefik, and your containers. Recommended shape:
    works for every environment. Set that environment's public values as runtime
    variables: `VITE_OIDC_AUTHORITY`, `VITE_OIDC_CLIENT_ID`,
    `VITE_OIDC_REDIRECT_URI`, `VITE_OIDC_SCOPE` and `VITE_GRAPHQL_API_URL` are
-   required; `VITE_OIDC_API_RESOURCE`, `VITE_BASE_URL`, `VITE_SENTRY_DSN` and
-   `VITE_APP_VERSION` are optional. Miss a required one and the server refuses to
+   required; `VITE_OIDC_API_RESOURCE`, `VITE_BASE_URL`, `VITE_SENTRY_DSN`,
+   `VITE_APP_VERSION` and `VITE_APP_ENV` are optional. Miss a required one and the server refuses to
    start, naming it in the log.
    > 🔒 **environment** — these values are what tells one environment from
    > another, and an image cannot. A staging frontend pointed at the production
@@ -455,6 +457,48 @@ bucket ever grows in a way the row count cannot explain, the two ways out are a
 lifecycle rule on the storage side (expire objects under a prefix) or a scan
 that lists keys and looks each one up in the column holding the file URLs.
 Neither is set up for you.
+
+## Observability
+
+Errors, logs, metrics, traces, product analytics and alerts go to one shared
+observability server (OpenObserve + GlitchTip + Rybbit). How to deploy it, and how
+a derived project connects to it: [observability/](./observability/README.md).
+The template itself needs only `VITE_SENTRY_DSN` (the GlitchTip project's DSN) and
+`VITE_APP_ENV` on the frontend to start reporting errors.
+
+### Source maps for the error tracker
+
+A production build emits no source maps unless it is given an upload token. With
+one, `npm run build` emits *hidden* maps (no `sourceMappingURL` in the shipped JS),
+uploads them to the error tracker as a debug-ID artifact bundle — verified against
+GlitchTip 6.1 — and deletes the browser maps before anything is packaged:
+
+```bash
+VITE_SENTRY_URL=https://glitchtip.example.com \
+VITE_SENTRY_ORG=<org-slug> VITE_SENTRY_PROJECT=<project-slug> \
+VITE_SENTRY_AUTH_TOKEN=… \
+NODE_ENV=production npm run build
+```
+
+The token comes from GlitchTip → Profile → Auth Tokens with the `project:releases`
+scope. It is a real secret: never put it in `.env.example`, a compose file or an image.
+
+The Docker image takes the same four values as build args of its *build* stage
+(from `frontend/`):
+
+```bash
+docker build \
+  --build-arg VITE_SENTRY_URL=https://glitchtip.example.com \
+  --build-arg VITE_SENTRY_ORG=<org-slug> --build-arg VITE_SENTRY_PROJECT=<project-slug> \
+  --build-arg VITE_SENTRY_AUTH_TOKEN="$VITE_SENTRY_AUTH_TOKEN" \
+  -t "${IMAGE_REGISTRY:-}litefront:${IMAGE_TAG:-latest}" .
+```
+
+The pushed image carries none of them — its runtime stage starts from a fresh `FROM`
+— but the token stays in the build machine's local Docker cache, so build on a machine
+you trust and prune the cache if it is shared. (A BuildKit secret would avoid even
+that, but Docker without buildx rejects `RUN --mount`, and the image must build
+there.) `npm run docker:build` passes no args, so its images report minified stacks.
 
 ## Backups
 

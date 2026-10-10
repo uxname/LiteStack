@@ -189,6 +189,32 @@ model {
     technology 'docker compose · Caddy · Garage'
   }
 
+  // ---- Observability (meta ADR-0009, docs/observability/) ----
+  // ONE shared server, used by every product built from the template. The
+  // template itself wires only one arrow below — the frontend's error reports
+  // to GlitchTip, switched on by VITE_SENTRY_DSN. Every other arrow is added in
+  // the DERIVED project by following docs/observability/CONNECT.md, and says so.
+  glitchtip = system 'GlitchTip (error tracker)' {
+    description 'Answers "what broke in the code". Receives exceptions through the Sentry SDK and groups them into issues with a stack, a release and a resolved / regressed status. Backend and SSR errors are also ERROR log lines, and OpenObserve alerts on those; browser errors never reach a server log, so the frontend project is the one place GlitchTip itself sends an alert (by email).'
+  }
+
+  openobserve = system 'OpenObserve (logs, metrics, traces, alerts)' {
+    description 'Answers "what is the system doing". Stores the logs of every container, host and container metrics and traces, all received over OpenTelemetry (OTLP), and is the ONE place alerts are defined. Open-source edition; people and agents query it with SQL through its API.'
+  }
+
+  rybbit = system 'Rybbit (product analytics)' {
+    description 'Answers "how do users move through the product": page views, product events, funnels, retention, journeys and session replay. Cookieless until a user is identified.'
+  }
+
+  telegram = system 'Telegram (alert channel)' {
+    description 'Where people get woken up. OpenObserve alerts and Dokploy deploy / resource notifications are sent to one chat.'
+  }
+
+  otelCollector = infrastructure 'OpenTelemetry Collector (one per product server)' {
+    description 'The only observability software on a product server, deployed by the derived project. Reads every container stdout log straight from Docker (the apps keep writing JSON lines, nothing changes in their code), collects host and container metrics, accepts traces and metrics from the backend over OTLP, and forwards all of it to OpenObserve. Swapping OpenObserve for another backend changes this one exporter address.'
+    technology 'otel/opentelemetry-collector-contrib'
+  }
+
   // ======== THE DEVELOPER CONTOUR (nothing here serves users) ========
   // Everything below is tagged #dev and is hidden from the production views.
   // Two groups: one public CDN the dev pages pull their scripts from, and four
@@ -277,6 +303,16 @@ model {
   lstack.web -> logto 'redirects to sign-in (OIDC PKCE)' 'A redirect to Logto and back with the code; the tenant address (VITE_OIDC_AUTHORITY) comes from the container environment at boot, so one image signs in against any tenant.'
   lstack.api -> logto 'verifies the JWT against JWKS' 'Fetches public keys (OIDC_JWKS_URI) and checks the audience (OIDC_AUDIENCE). The audience must equal the frontend VITE_OIDC_API_RESOURCE — otherwise 401 on every request.'
 
+  lstack.web -> glitchtip 'reports errors (browser and SSR)' 'Errors only — no traces, no session replay. On when VITE_SENTRY_DSN is set at boot, filed under VITE_APP_ENV and VITE_APP_VERSION. The one observability arrow the template wires itself.'
+  lstack.api -> glitchtip 'reports errors — derived project' 'sentry-go at the GraphQL error presenter and the three panic sites; tagged with the same environment, release and user (OIDC sub) as the frontend.'
+  lstack.web -> rybbit 'sends page views, events and replay — derived project' 'The Rybbit script runs in the user browser; identify() is called only after the user agreed.'
+  lstack.api -> rybbit 'sends business events — derived project' 'Server-side events (sign-up, upload) that an ad blocker cannot drop.'
+  lstack.api -> otelCollector 'sends traces and metrics over OTLP — derived project'
+  otelCollector -> lstack 'reads every container log and resource usage from Docker' 'stdout JSON of the backend and SSR copies, Postgres, Redis and the proxy; nothing in the apps changes.'
+  otelCollector -> openobserve 'forwards logs, metrics and traces (OTLP)'
+  openobserve -> telegram 'sends alerts' 'ERROR log lines, bursts of 5xx, failed jobs, slow queries, a service that went silent.'
+  engineer -> openobserve 'investigates incidents (people and AI agents, through the APIs)'
+
   engineer -> buildsrv 'builds the images'
   buildsrv -> registry 'pushes the images' 'docker push <IMAGE_REGISTRY>liteend|litefront:<IMAGE_TAG>; for a private registry — docker login first. The frontend image carries no environment inside it any more, so the very same tag can be promoted from staging to production without a rebuild.'
   engineer -> stand 'runs the scale check before shipping' 'Brings the stand up by hand and runs scripts/scale-check.sh. Never in a git hook: starting four containers is far too slow for a commit, so for the stand the hook only checks its compose file and Caddyfile syntax.'
@@ -338,6 +374,12 @@ views {
     engineer -> runsrv 'Step 4: sets IMAGE_REGISTRY and IMAGE_TAG on the target host, calls docker compose pull for both sides'
     runsrv -> registry 'Step 5: pulls the images; if the digest did not change, up -d is a no-op — verify with docker compose images'
     engineer -> runsrv 'Step 6: `up -d --scale app=N` brings up N copies of each side; the first backend copy to get the advisory lock runs goose migrations (forward-only) while the others wait'
+  }
+
+  view observability {
+    title 'Observability: where every signal goes (docs/observability/)'
+    include lstack, lstack.web, lstack.api
+    include otelCollector, glitchtip, openobserve, rybbit, telegram, engineer
   }
 
   // ---- The developer contour. Read the title before the boxes. ----

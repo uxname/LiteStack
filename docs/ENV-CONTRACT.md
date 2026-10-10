@@ -68,15 +68,16 @@ image runs in any environment.
 | `VITE_OIDC_REDIRECT_URI` | **yes** | This environment's `/callback` URL. |
 | `VITE_OIDC_SCOPE` | **yes** | e.g. `openid profile offline_access`. |
 | `VITE_GRAPHQL_API_URL` | **yes** | |
-| `VITE_OIDC_API_RESOURCE`, `VITE_BASE_URL`, `VITE_SENTRY_DSN`, `VITE_APP_VERSION` | no | Empty is a valid, working value. |
+| `VITE_OIDC_API_RESOURCE`, `VITE_BASE_URL`, `VITE_SENTRY_DSN`, `VITE_APP_VERSION`, `VITE_APP_ENV` | no | Empty is a valid, working value. |
 
 Every variable in that table is delivered to the browser. Never put a secret in one.
 
-Four values are settings of the **build** instead, and belong in the build
+Five values are settings of the **build** instead, and belong in the build
 environment: `VITE_MOCK_AUTH` (fake logins must not be switchable on a running
-container) and `VITE_SENTRY_ORG` / `VITE_SENTRY_PROJECT` /
+container) and `VITE_SENTRY_URL` / `VITE_SENTRY_ORG` / `VITE_SENTRY_PROJECT` /
 `VITE_SENTRY_AUTH_TOKEN` (they upload source maps while building; the token is a
-real secret and must never reach a container).
+real secret and must never reach a container). How to pass them:
+[DEPLOY.md → Source maps](./DEPLOY.md#source-maps-for-the-error-tracker).
 
 ## Per-copy variables (when you run more than one)
 

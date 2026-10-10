@@ -105,7 +105,7 @@ How code, tests, log lines and commit messages are written:
   | Deploy order and targets | [`docs/DEPLOY.md`](../docs/DEPLOY.md) |
   | Toolchain requirements and minimum versions | the root [`README.md`](../README.md) |
   | A subscription is not a delivery guarantee | [`backend/.agents/ARCHITECTURE.md`](../backend/.agents/ARCHITECTURE.md) |
-  | What session replay does and does not record | [`frontend/.agents/OBSERVABILITY.md`](../frontend/.agents/OBSERVABILITY.md) |
+  | The observability stack — which tool answers what, how it is deployed, how a project connects | [`docs/observability/`](../docs/observability/README.md), decision in [`docs/adr/0009`](../docs/adr/0009-shared-observability-stack.md) |
   | Who may read an uploaded file, and for how long | [`backend ADR-0003`](../backend/docs/adr/0003-files-are-private-and-served-through-signed-links.md) for the decision, [`docs/ENV-CONTRACT.md`](../docs/ENV-CONTRACT.md) for `FILE_VISIBILITY` + `FILE_LINK_TTL_MINUTES` |
 
   `S3_PUBLIC_BASE_URL` did not go away when files became private — it became the prefix a
