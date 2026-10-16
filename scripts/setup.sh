@@ -64,6 +64,11 @@ if [[ "$DO_INSTALL" == 1 ]]; then
   ( cd backend && "$TASK" setup )
   step "Frontend: npm ci"
   ( cd frontend && npm ci )
+  # src/generated/paraglide is not in git; Vite writes it only on dev/build, so without
+  # this step `npm run check` (and the pre-commit hook) fails on a fresh clone.
+  # Keep project and outdir in step with paraglideVitePlugin in frontend/vite.config.ts.
+  step "Frontend: Paraglide messages"
+  ( cd frontend && npx paraglide-js compile --project ./project.inlang --outdir ./src/generated/paraglide )
   step "Meta root: npm ci"
   npm ci
 else
