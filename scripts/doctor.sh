@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# doctor.sh — verify the backend ↔ frontend env contract (docs/ENV-CONTRACT.md).
+# doctor.sh — verify the backend ↔ frontend env contract (docs/ENV-CONTRACT.md), and
+# that the git hooks — the only gate, there is no CI — are installed in all three repos.
 #
 # Reads each value the way the apps do: exported environment first, then that side's
 # .env when it exists — a .env is OPTIONAL, and both routes are checked with the same
@@ -270,9 +271,35 @@ if [[ "$PROBE" == 1 ]]; then
   fi
 fi
 
+# 8. Git hooks. There is no CI (docs/adr/0001-no-ci-gates-live-in-git-hooks.md): the
+# pre-commit hook in each repo is the only gate, and a clone that skipped setup has
+# none — every commit then lands unchecked, silently. lefthook writes all of a repo's
+# hooks at once, so pre-commit stands for the set. --git-path honours core.hooksPath
+# and a submodule's gitdir living under the meta's .git/modules/.
+echo
+echo "Git hooks"
+hook_check() {
+  local dir="$1" fix="$2" name="$1" hook
+  [[ "$dir" == . ]] && name=meta
+  # An empty submodule directory would make `git -C` answer for the meta-repo.
+  if [[ "$dir" != . && ! -e "$ROOT/$dir/.git" ]]; then
+    fail "$dir: submodule not checked out — run: git submodule update --init"
+    return
+  fi
+  hook="$(git -C "$ROOT/$dir" rev-parse --path-format=absolute --git-path hooks/pre-commit)"
+  if [[ -x "$hook" ]]; then
+    pass "$name: pre-commit hook installed"
+  else
+    fail "$name: pre-commit hook not installed — commits there skip every gate; run: $fix"
+  fi
+}
+hook_check .        "npm install at the meta root"
+hook_check backend  "lefthook install in backend/ (part of task setup)"
+hook_check frontend "npm install in frontend/"
+
 echo
 if [[ "$FAIL" -gt 0 ]]; then
-  echo "FAILED: $FAIL mismatch(es), $WARN warning(s). See docs/ENV-CONTRACT.md."
+  echo "FAILED: $FAIL problem(s), $WARN warning(s). See docs/ENV-CONTRACT.md."
   exit 1
 fi
-echo "OK: env contract satisfied${WARN:+, $WARN warning(s)}."
+echo "OK: env contract satisfied, hooks installed${WARN:+, $WARN warning(s)}."
