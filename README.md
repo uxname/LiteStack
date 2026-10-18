@@ -22,7 +22,7 @@ LiteStack/
 ├── .gitmodules      # submodule URLs (template vs derived — .agents/OPERATING-MODE.md)
 ├── .agents/         # the cross-project instruction files AGENTS.md routes to
 ├── docs/            # TEAM.md (process), ENV-CONTRACT.md, DEPLOY.md, adr/, retro/, architecture/likec4/
-├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh
+├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh, check-agent-docs.mjs
 ├── scale/           # local multi-copy stand: 2+2 copies behind one Caddy
 ├── backend/         # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
 ├── frontend/        # submodule → litefront (Vite · React 19 · URQL)

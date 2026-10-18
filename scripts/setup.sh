@@ -3,9 +3,10 @@
 # setup.sh — the one command that takes a fresh LiteStack clone to a runnable state.
 # Idempotent. It walks the whole path and stops at the first step that fails, saying
 # what is wrong: toolchain check (git, docker >= 27.4, go, task, node >= 24.15.0) ->
-# submodules -> an .env per side (`cp -n`, never overwrites) -> scripts/doctor.sh ->
-# `task setup` in backend -> `npm ci` in frontend -> `npm install` at the meta root.
-# Then it prints the two commands left for a human to type.
+# submodules -> an .env per side (`cp -n`, never overwrites) -> scripts/doctor.sh on the
+# env -> `task setup` in backend -> `npm ci` in frontend -> `npm ci` at the meta
+# root -> scripts/doctor.sh again, whole, to prove the installs left a git hook in all
+# three repos. Then it prints the two commands left for a human to type.
 #
 # Usage: scripts/setup.sh [--no-install]     --no-install: skip the three installs
 #
@@ -57,7 +58,8 @@ cp -n backend/.env.example backend/.env
 cp -n frontend/.env.example frontend/.env
 
 step "Env contract"
-scripts/doctor.sh
+# The hooks come from the installs below, so they are checked after them.
+scripts/doctor.sh --no-hooks
 
 if [[ "$DO_INSTALL" == 1 ]]; then
   step "Backend: $TASK setup"
@@ -71,6 +73,10 @@ if [[ "$DO_INSTALL" == 1 ]]; then
   ( cd frontend && npx paraglide-js compile --project ./project.inlang --outdir ./src/generated/paraglide )
   step "Meta root: npm ci"
   npm ci
+  # `task setup` only warns when lefthook is missing, so a clone can come out of the
+  # installs with no hook — and with no CI, no gate (docs/adr/0001).
+  step "Final check: env contract + git hooks"
+  scripts/doctor.sh
 else
   echo "  (--no-install: skipped the backend, frontend and meta installs)"
 fi

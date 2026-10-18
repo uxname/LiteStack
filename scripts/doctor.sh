@@ -13,16 +13,25 @@
 # where both are visible — or from a shell that exports both sides' variables.
 #
 # Usage:
-#   scripts/doctor.sh [--reachable]
+#   scripts/doctor.sh [--reachable] [--no-hooks]
 #     --reachable   Also probe the GraphQL endpoint (POST { __typename }); needed before
 #                   `npm run gen`, and the public storage prefix. A failed probe is a
 #                   WARNING, not an error (the service may be intentionally down).
+#     --no-hooks    Skip the git-hook check: for scripts/setup.sh, which checks the env
+#                   before the installs that write the hooks, and runs it whole after.
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBE=0
-[[ "${1:-}" == "--reachable" ]] && PROBE=1
+HOOKS=1
+for arg in "$@"; do
+  case "$arg" in
+    --reachable) PROBE=1 ;;
+    --no-hooks)  HOOKS=0 ;;
+    *)           echo "unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
 
 # fileval <file> <KEY>: value of KEY in an .env file, last wins, quotes + inline
 # comments stripped. The trailing `|| true` is load-bearing: without it grep's exit 1
@@ -276,8 +285,6 @@ fi
 # none — every commit then lands unchecked, silently. lefthook writes all of a repo's
 # hooks at once, so pre-commit stands for the set. --git-path honours core.hooksPath
 # and a submodule's gitdir living under the meta's .git/modules/.
-echo
-echo "Git hooks"
 hook_check() {
   local dir="$1" fix="$2" name="$1" hook
   [[ "$dir" == . ]] && name=meta
@@ -293,13 +300,17 @@ hook_check() {
     fail "$name: pre-commit hook not installed — commits there skip every gate; run: $fix"
   fi
 }
-hook_check .        "npm install at the meta root"
-hook_check backend  "lefthook install in backend/ (part of task setup)"
-hook_check frontend "npm install in frontend/"
+if [[ "$HOOKS" == 1 ]]; then
+  echo
+  echo "Git hooks"
+  hook_check .        "npm install at the meta root"
+  hook_check backend  "lefthook install in backend/ (part of task setup)"
+  hook_check frontend "npm install in frontend/"
+fi
 
 echo
 if [[ "$FAIL" -gt 0 ]]; then
-  echo "FAILED: $FAIL problem(s), $WARN warning(s). See docs/ENV-CONTRACT.md."
+  echo "FAILED: $FAIL problem(s), $WARN warning(s). Env: see docs/ENV-CONTRACT.md; hooks: the command named above."
   exit 1
 fi
-echo "OK: env contract satisfied, hooks installed${WARN:+, $WARN warning(s)}."
+echo "OK: env contract satisfied$([[ "$HOOKS" == 1 ]] && echo ", hooks installed")${WARN:+, $WARN warning(s)}."

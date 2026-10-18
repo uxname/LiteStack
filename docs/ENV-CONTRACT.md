@@ -8,6 +8,8 @@ variable in the log). Both prod compose files fail even earlier — at
 `docker compose config` time, naming the missing variable — so a half-configured host never
 reaches a container. No `.env` is required for that; exported environment variables work.
 `scripts/doctor.sh` checks these pairs automatically — run it after changing any value.
+(It also fails when a repo has no git hook installed, and names the command to run —
+not an env matter, but a clone without hooks has no gate at all: meta ADR-0001.)
 It also hard-checks `S3_PUBLIC_BASE_URL` on its own, because nothing else can: every file
 link is that prefix plus an object key, so a wrong one yields a link that is valid-looking
 and dead, and it is already stored with the profile by the time anyone sees a broken
