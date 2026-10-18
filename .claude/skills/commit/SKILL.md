@@ -58,7 +58,9 @@ Every commit and push runs the hooks in full — they are the only gate, there i
 behind them (`--no-verify` is never an option).
 
 > Check the **exit status** of each gate, not the tail of its output. A
-> `task check | tail` reports success even when the task failed.
+> `task check | tail` reports success even when the task failed. The secrets scan reads
+> the staged diff, so the gate run before `git add` is blind to secrets: the exit status
+> of `git commit` itself is the proof.
 
 ## Step 4: Record the updated pointers in the meta-repo
 
