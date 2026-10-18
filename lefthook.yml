@@ -1,9 +1,11 @@
 # Git hooks for the meta-repo. There is no CI (docs/adr/0001-no-ci-gates-live-in-git-hooks.md),
 # so this hook is the only thing that reads the meta-repo's own artefact — the LikeC4
-# model — and scans the staged diff for secrets before they land.
+# model — checks the agent docs of all three repos, and scans the staged diff for
+# secrets before they land.
 #
-# Thin on purpose, like the submodules' hooks: the logic lives in npm scripts, so the
-# same checks run by hand with `npm run likec4:validate` / `npm run secrets`. The stand's
+# Thin on purpose, like the submodules' hooks: the logic lives in npm scripts or in
+# scripts/, so the same checks run by hand with `npm run likec4:validate`,
+# `node scripts/check-agent-docs.mjs` and `npm run secrets`. The stand's
 # own config is not checked here at all — that is a manual step, see scripts/scale-check.sh.
 #
 # Installed by `npm install` at the meta root (the `prepare` script in package.json),
@@ -16,6 +18,19 @@ pre-commit:
       # only thing that enforces it. The npm script also fails on "Valid (0 files)":
       # an empty or misplaced model directory validates green and proves nothing.
       run: npm run likec4:validate
+
+    agent-docs:
+      # ADR-0010: links, @imports and `task` / `npm run` names in AGENTS.md, CLAUDE.md,
+      # .agents/ and skills must resolve — a rename otherwise leaves agents a false
+      # instruction and nothing fails. Runs on every commit, not only when a doc is
+      # staged: renaming a file or a task breaks a doc nobody touched. Plain Node,
+      # offline, well under a second.
+      run: node scripts/check-agent-docs.mjs
+
+    agent-docs-selftest:
+      # The checker's own test, only when the checker itself changes.
+      glob: "scripts/check-agent-docs*.mjs"
+      run: node --test scripts/check-agent-docs.test.mjs
 
     secrets:
       # gitleaks over the staged diff — the commit's own content, which is what a

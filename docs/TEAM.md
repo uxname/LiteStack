@@ -45,7 +45,7 @@ the artefacts it owns.
 |---|---|---|
 | **backend** (Go) | `task check` (codegen-freshness, tidy, lint, arch, deadcode, secrets) | `task test:cov` (unit + integration via testcontainers + coverage floors; needs Docker), `task vuln` (govulncheck — the only gate that needs the network) |
 | **frontend** (npm) | `npm run verify:commit` (`check` + gitleaks `secrets`) | `npm run verify:push` (`verify:commit` + gitleaks over history + `test:cov` + Playwright E2E + Storybook build) |
-| **meta** (npm) | `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)) and `npm run secrets` (gitleaks on the staged diff, skipped if not installed) | — (nothing slow to run) |
+| **meta** (npm) | `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)), `node scripts/check-agent-docs.mjs` (links and command names in the agent docs of all three repos, [ADR-0010](./adr/0010-agent-docs-are-checked-mechanically.md)) and `npm run secrets` (gitleaks on the staged diff, skipped if not installed) | — (nothing slow to run) |
 
 The stand's config is checked by hand, not on commit: `npm run scale:validate`.
 
