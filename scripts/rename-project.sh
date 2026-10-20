@@ -18,8 +18,9 @@
 #   --repo-owner  If set, rewrites demo refs uxname/litefront and uxname/liteend-go on the
 #                 home page to <repo-owner>/<name>, AND rewrites the backend Go module path
 #                 (github.com/uxname/liteend-go → github.com/<repo-owner>/<name>) across
-#                 go.mod, every backend *.go import, and the backend *.yml configs that
-#                 reference it (.golangci.yml, gqlgen.yml, .testcoverage.yml, Taskfile.yml).
+#                 go.mod, every backend *.go import, the backend *.yml configs that
+#                 reference it (.golangci.yml, gqlgen.yml, .testcoverage.yml, Taskfile.yml)
+#                 and the Dockerfile (its `-ldflags -X` stamps version and build time).
 #                 Omit to leave all of them untouched.
 #   --dry-run     Show every match that would change; mutate nothing.
 #
@@ -149,7 +150,9 @@ done
 # import, so it must be rewritten across go.mod and all *.go, not per-file. The backend
 # *.yml configs reference it too (.golangci.yml gci, gqlgen.yml model mapping,
 # .testcoverage.yml excludes, Taskfile.yml PKG) — miss those and a derived project's
-# lint/codegen/coverage gates break on the first run.
+# lint/codegen/coverage gates break on the first run. The Dockerfile names it in
+# `-ldflags -X <module>/internal/version.*`: a miss does not fail the build, it only
+# leaves version and build time empty in the image.
 if [[ -n "$REPO_OWNER" ]]; then
   # The token deliberately omits the "github.com/" prefix: .testcoverage.yml carries
   # the path in regex-escaped form (github\.com/uxname/liteend-go), which a
@@ -158,8 +161,8 @@ if [[ -n "$REPO_OWNER" ]]; then
   OLD_MODULE="uxname/liteend-go"
   NEW_MODULE="$REPO_OWNER/$NAME"
   if [[ "$OLD_MODULE" != "$NEW_MODULE" ]]; then
-    # go.mod + every backend *.go and *.yml that references the old module path.
-    mapfile -t GO_FILES < <(grep -rlF "$OLD_MODULE" "$ROOT/backend/go.mod" "$ROOT/backend" --include='go.mod' --include='*.go' --include='*.yml' 2>/dev/null | sort -u)
+    # go.mod + every backend *.go, *.yml and Dockerfile* that references the old module path.
+    mapfile -t GO_FILES < <(grep -rlF "$OLD_MODULE" "$ROOT/backend/go.mod" "$ROOT/backend" --include='go.mod' --include='*.go' --include='*.yml' --include='Dockerfile*' 2>/dev/null | sort -u)
     for path in "${GO_FILES[@]}"; do
       [[ -f "$path" ]] || continue
       rel="${path#"$ROOT"/}"

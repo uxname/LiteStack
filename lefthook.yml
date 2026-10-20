@@ -32,6 +32,12 @@ pre-commit:
       glob: "scripts/check-agent-docs*.mjs"
       run: node --test scripts/check-agent-docs.test.mjs
 
+    rename-selftest:
+      # rename-project.sh picks its files by pattern; this runs it on clones of both
+      # submodules and fails when a backend file keeps the template module path.
+      glob: "scripts/rename-project*"
+      run: node --test scripts/rename-project.test.mjs
+
     secrets:
       # gitleaks over the staged diff — the commit's own content, which is what a
       # pre-commit gate should check. The submodules do the same on pre-commit and

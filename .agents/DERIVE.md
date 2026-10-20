@@ -37,7 +37,9 @@ The mechanical core, if you do it by hand:
 It renames the machine identity (frontend package name and lock, docker network, the
 theme `localStorage` key in all three places), every frontend file carrying the brand
 word — the list is searched, not kept by hand — and, with `--repo-owner`, the demo repo
-references and the backend Go module path across `go.mod` and every backend `*.go`.
+references and the backend Go module path across `go.mod`, every backend `*.go` and
+`*.yml`, and the `Dockerfile` (its `-ldflags -X` stamps the version and build time).
+`scripts/rename-project.test.mjs` fails if any other backend file keeps the old path.
 
 It does **not** touch the backend's own brand strings, which are UI text:
 `internal/version/version.go` (`AppName`), the dev launcher and API reference pages in
