@@ -9,7 +9,7 @@ sub-project's own `AGENTS.md`.
 |---|---|---|---|
 | `backend/` | API (**liteend-go**) | Go · chi · **gqlgen** GraphQL (schema-first) · sqlc · pgx · PostgreSQL · Redis · Asynq · goose · OIDC | `4000` (`/graphql` + playground) |
 | `frontend/` | SPA/SSR (**litefront**) | Vite · React 19 · TanStack Start · URQL · Zustand · Tailwind v4 · shadcn/ui · Paraglide | `3000` |
-| `protokit/` | the prototype (**protokit**), until a product removes it | Vite · React 19 · urql + graphql-js on a simulated server in the browser | `5173` (`npm run dev` in `protokit/prototype`) |
+| `protokit/` | the prototype (**protokit**), until a product removes it | Vite · React 19 · urql + graphql-js on a simulated server in the browser | `5173` (the prototype's dev server, in `protokit/prototype`) |
 
 Backend infra ports: PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsight
 `5200`, Asynqmon `5300`, Garage Web UI `5400` — all dashboards sit behind a
