@@ -5,6 +5,10 @@
 - LiteStack is a **full-stack boilerplate**: a backend (`backend`) + a frontend
   (`frontend`) wired together as git submodules, plus an `AGENTS.md` that tells AI agents
   how to work across both.
+- **The product's requirements** live in `docs/src` (docc), and the code that carries each
+  one names it in a `docc:` tag — an edit on either side fails the commit until the other
+  is checked. A clickable **prototype** (`protokit`, a third submodule) is tied to them the
+  same way, until a product removes it ([ADR-0011](./docs/adr/0011-requirements-in-docc-bind-prototype-and-code.md)).
 - It is a **starting point, not a runnable product**. The meta-repo holds no app code.
 - **Agents:** read [`AGENTS.md`](./AGENTS.md) first, then each sub-project's `AGENTS.md`.
 - **Clone:** `git clone --recurse-submodules <url>` (or `git submodule update --init --recursive`).
@@ -21,11 +25,13 @@ LiteStack/
 ├── lefthook.yml     # the meta-repo's own git hook (what it runs is explained in the file)
 ├── .gitmodules      # submodule URLs (template vs derived — .agents/OPERATING-MODE.md)
 ├── .agents/         # the cross-project instruction files AGENTS.md routes to
-├── docs/            # TEAM.md (process), ENV-CONTRACT.md, DEPLOY.md, adr/, retro/, architecture/likec4/
-├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh, check-agent-docs.mjs
+├── docc.json        # docc: where the requirements are and which code folders carry their tags
+├── docs/            # src/ + schemas/ (the requirements, docc), TEAM.md, ENV-CONTRACT.md, DEPLOY.md, adr/, retro/, architecture/likec4/
+├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh, check-agent-docs.mjs, check-coverage.mjs
 ├── scale/           # local multi-copy stand: 2+2 copies behind one Caddy
 ├── backend/         # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
 ├── frontend/        # submodule → litefront (Vite · React 19 · URQL)
+├── protokit/        # submodule → protokit: the prototype on a simulated server (removable)
 └── .claude/skills/  # the four cross-project skills
 ```
 
@@ -38,8 +44,9 @@ LiteStack/
 | Go | 1.27 | `go version` |
 | Task | any (on Arch the binary is `go-task`) | `task --version` |
 | Node | 24.15.0 | `node -v` |
+| docc | 0.6.0 — the first that reads tags inside submodules | `docc --version` |
 
-`scripts/setup.sh` checks all five and names everything missing in one message.
+`scripts/setup.sh` checks all six and names everything missing in one message.
 
 ## Getting started
 

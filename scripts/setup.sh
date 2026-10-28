@@ -40,6 +40,11 @@ command -v go  >/dev/null || missing+=("go (1.27+)")
 command -v task >/dev/null || { TASK=go-task; command -v go-task >/dev/null || missing+=("task (on Arch: go-task)"); }
 if ! command -v node >/dev/null; then missing+=("node (>= 24.15.0)")
 elif ! ver_ge "$(node -v | tr -d v)" 24.15.0; then missing+=("node >= 24.15.0 — found $(node -v)"); fi
+# docc 0.6.0 is the first that reads tags inside submodules (docs/adr/0011). A local
+# build reports "dev" and is taken as new enough.
+if ! command -v docc >/dev/null; then missing+=("docc (>= 0.6.0): curl -fsSL https://raw.githubusercontent.com/uxname/docc/main/install.sh | sh")
+elif ! docc --version | grep -q ' dev$' && ! ver_ge "$(docc --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 0.6.0; then
+  missing+=("docc >= 0.6.0 — found $(docc --version); run: docc update"); fi
 if ! command -v docker >/dev/null; then missing+=("docker (Engine >= 27.4)")
 elif ! ver_ge "$(docker --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 27.4; then
   missing+=("docker Engine >= 27.4 — found $(docker --version)"); fi
@@ -73,6 +78,13 @@ if [[ "$DO_INSTALL" == 1 ]]; then
   ( cd frontend && npx paraglide-js compile --project ./project.inlang --outdir ./src/generated/paraglide )
   step "Meta root: npm ci"
   npm ci
+  # The prototype is optional (docs/adr/0011): a product that removed it skips this.
+  # Its hooks come from the meta's lefthook binary, so this runs after the npm ci above.
+  if [[ -d protokit/prototype ]]; then
+    step "Prototype: npm ci + hooks"
+    ( cd protokit/prototype && npm ci )
+    ( cd protokit && ../node_modules/.bin/lefthook install )
+  fi
   # `task setup` only warns when lefthook is missing, so a clone can come out of the
   # installs with no hook — and with no CI, no gate (docs/adr/0001).
   step "Final check: env contract + git hooks"

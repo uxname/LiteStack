@@ -1,0 +1,9 @@
+{
+  "title": "Theme",
+  "kind": "req",
+  "parent": "index",
+  "body": [
+    "A person picks the light, the dark or the system theme. The system theme is the default and follows the setting of the device, also when that setting changes with the page open. ^fr7c",
+    "The choice is kept on the device and applied before the page is drawn, so the page never shows the other theme first. ^2dhs"
+  ]
+}

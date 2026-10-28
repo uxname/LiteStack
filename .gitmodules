@@ -4,3 +4,6 @@
 [submodule "liteend-go"]
 	path = backend
 	url = https://github.com/uxname/liteend-go.git
+[submodule "protokit"]
+	path = protokit
+	url = https://github.com/uxname/protokit.git

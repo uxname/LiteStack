@@ -2,8 +2,12 @@
 
 LiteStack is a full-stack boilerplate: two projects as git submodules — `backend/`
 (liteend-go) and `frontend/` (litefront), each its own repo — plus this thin layer that
-only **coordinates** them. Application code always lives in a submodule: a resolver, a
-component or a migration at this root means you are in the wrong folder.
+only **coordinates** them. The product's requirements live here in `docs/src` (docc), and
+a clickable prototype, `protokit/`, is a third submodule until a product removes it;
+both are tied to the code by `docc:` tags
+([ADR-0011](./docs/adr/0011-requirements-in-docc-bind-prototype-and-code.md)).
+Application code always lives in a submodule: a resolver, a component or a migration at
+this root means you are in the wrong folder.
 
 ## Every task
 
@@ -31,7 +35,9 @@ component or a migration at this root means you are in the wrong folder.
 |---|---|
 | API, database, business logic, jobs, server-side GraphQL | [backend/AGENTS.md](./backend/AGENTS.md) |
 | UI, routing, client state, styling, GraphQL the browser sends | [frontend/AGENTS.md](./frontend/AGENTS.md) |
-| A feature on both sides | backend first — the `full-stack-feature` skill |
+| **What the product must do**: read or change a requirement — every edit reaches the prototype and the code tagged with it | `docs/src`, the `docc` skill; the rules in [.agents/CROSS-PROJECT.md](./.agents/CROSS-PROJECT.md) → "Requirements" |
+| The **prototype**: a screen or a path on the simulated server | `protokit/`, the `protokit` skill; removing it: [.agents/OPERATING-MODE.md](./.agents/OPERATING-MODE.md) |
+| A feature on both sides | requirement first, then the prototype (while there is one), then backend — the `full-stack-feature` skill |
 | A back ↔ front **seam** (codegen, auth audience, CORS + WebSockets, `requestId`), or who owns a shared value | [.agents/CROSS-PROJECT.md](./.agents/CROSS-PROJECT.md) |
 | An **env var** both sides must agree on | [docs/ENV-CONTRACT.md](./docs/ENV-CONTRACT.md) |
 | **Commit or push**: template vs derived mode decides the remote | the `commit` skill; rules in [.agents/OPERATING-MODE.md](./.agents/OPERATING-MODE.md) |

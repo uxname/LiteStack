@@ -1,0 +1,10 @@
+{
+  "title": "Language",
+  "kind": "req",
+  "parent": "index",
+  "body": [
+    "The product is in English and Russian; English is the default. ^84vy",
+    "The chosen language is kept on the device. Without a choice the product uses the language of the browser when it has that language. ^x5ny",
+    "Changing the language reloads the page in that language, and the Logto pages the product opens use it too. ^q6qj"
+  ]
+}

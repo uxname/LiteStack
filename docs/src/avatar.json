@@ -1,0 +1,11 @@
+{
+  "title": "Avatar",
+  "kind": "req",
+  "parent": "index",
+  "body": [
+    "An avatar is a PNG, JPEG, GIF or WebP image of at most 5 MB. The server takes the type from the content of the file, not from its name. ^b6nc",
+    "A person uploads at most 100 files in an hour. ^dg6c",
+    "Uploaded files are private unless the operator sets `FILE_VISIBILITY` to `public`: the server signs a link for the person who asks, and the link stops working after `FILE_LINK_TTL_MINUTES` minutes, 60 unless set. ^t25x",
+    "A profile cannot point at a file another person uploaded; a link to another site is kept as given. An uploaded avatar is stored with the profile when the person presses Save changes. ^35w7"
+  ]
+}

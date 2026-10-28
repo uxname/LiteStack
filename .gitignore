@@ -15,3 +15,9 @@ cookies.txt
 
 # The scale stand is configured by env vars with defaults; a local override is private.
 /scale/.env
+
+# docc output: built from docs/src for reading, never committed (docc.json "commitOut": false)
+/docs/out/
+/docs/out.md
+/docs/out.html
+/docs/out-full/

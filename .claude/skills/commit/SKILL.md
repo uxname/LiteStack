@@ -3,8 +3,9 @@ name: commit
 description: Commit changes across the LiteStack meta-repo and its submodules. Use when the user asks to commit or push from the LiteStack root. It commits inside each changed submodule first, then records the updated submodule pointers in the meta-repo, and pushes according to the operating mode (template vs derived).
 ---
 
-The user wants to commit work done across LiteStack. Because `backend/` and `frontend/`
-are **separate git repositories** (submodules), a meta-level commit is a few ordered steps,
+The user wants to commit work done across LiteStack. Because `backend/`, `frontend/` and
+`protokit/` (while the product keeps the prototype) are **separate git repositories**
+(submodules), a meta-level commit is a few ordered steps,
 not one `git commit`. Get the order right or the meta-repo will point at commits that were
 never pushed.
 
@@ -40,13 +41,17 @@ git submodule status
 
 ## Step 3: Commit inside each changed submodule
 
-For **each** submodule that has changes (`backend` and/or `frontend`):
+For **each** submodule that has changes (`protokit`, `backend`, `frontend`, in that
+order). An edited requirement in `docs/src` blocks commits in every submodule tagged with
+it until all of them are in line (`.agents/CROSS-PROJECT.md` → "Requirements"): bring
+every working tree in line first, then commit.
 
 ```bash
 cd <submodule>
 # Run that project's own gate FIRST, from its AGENTS.md:
 #   backend  → task check      (and task test:cov before pushing)
 #   frontend → npm run check   (verify:push runs on pre-push)
+#   protokit → npm run check in prototype/ (test:e2e runs on pre-push)
 git status                     # review what is there before staging
 git add <file>...              # stage by name, as in Step 4
 git commit                     # conventional commits; the pre-commit hook re-runs the gate
@@ -66,7 +71,7 @@ behind them (`--no-verify` is never an option).
 
 ```bash
 git status                     # review — never stage secrets (.env, credentials)
-git add backend frontend       # stage the new submodule commit pointers
+git add backend frontend protokit   # stage the new submodule commit pointers (the changed ones)
 git add <file>...              # stage changed meta files by name (AGENTS.md, docs/retro/, etc.)
 ```
 

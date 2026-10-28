@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # rename-project.sh — replace the LiteStack template identity (liteend-go / litefront /
-# LiteFront) with a new project identity across both submodules.
+# LiteFront) with a new project identity across the submodules.
 #
 # Run this ONCE on a freshly derived project, BEFORE deps install / `docker compose up`.
 # It is idempotent: once the template tokens are gone, re-running is a no-op.
@@ -99,6 +99,13 @@ OPS=(
 # would drift exactly the way the file list used to.
 mapfile -t BRAND_FILES < <(git -C "$ROOT/frontend" grep -lF LiteFront -- . ':!src/generated' \
   | sed 's|^|frontend/|' | sort -u)
+# The prototype carries the brand too (protokit/prototype/src/components/brand.ts and
+# index.html), while it exists — a product may have removed it (docs/adr/0011). Only
+# prototype/: protokit's README credits LiteFront by name, which is not the brand.
+if [[ -d "$ROOT/protokit/prototype" ]]; then
+  mapfile -t -O "${#BRAND_FILES[@]}" BRAND_FILES < <(git -C "$ROOT/protokit" grep -lF LiteFront -- prototype ':!prototype/src/generated' \
+    | sed 's|^|protokit/|' | sort -u)
+fi
 for f in "${BRAND_FILES[@]}"; do
   OPS+=("$f|LiteFront|$DISPLAY")
 done

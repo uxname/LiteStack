@@ -1,0 +1,18 @@
+{
+  "src": "docs/src",
+  "out": "docs/out",
+  "roots": ["index"],
+  "maxWarnings": 0,
+  "commitOut": false,
+  "lang": "en",
+  "trace": {
+    "scan": [
+      "protokit/prototype/src/**",
+      "protokit/prototype/schema.graphql",
+      "backend/internal/**",
+      "backend/db/**",
+      "frontend/src/**",
+      "frontend/vite.config.ts"
+    ]
+  }
+}

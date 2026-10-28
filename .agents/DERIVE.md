@@ -6,8 +6,9 @@ repoint → rename → install → wire env → verify → first commit.
 
 The mechanical core, if you do it by hand:
 
-1. **Create your own repos** for the meta, backend and frontend on any git host (fork or
-   push copies of the `uxname/*` templates). **Create all three as private repositories.**
+1. **Create your own repos** for the meta, backend, frontend and prototype on any git
+   host (fork or push copies of the `uxname/*` templates). **Create all four as private
+   repositories.**
    A derived product is your own code, not a template; making a repo public is a separate,
    deliberate decision you take later, not the default. You may keep the template as an
    `upstream` remote, but note we do not chase upstream changes.
@@ -15,6 +16,7 @@ The mechanical core, if you do it by hand:
    ```bash
    git config -f .gitmodules submodule.liteend-go.url <your-backend-repo-url>
    git config -f .gitmodules submodule.litefront.url  <your-frontend-repo-url>
+   git config -f .gitmodules submodule.protokit.url   <your-prototype-repo-url>
    git submodule sync
    ```
 3. **Set the meta-repo `origin`** to your meta repo and push.
@@ -26,6 +28,9 @@ The mechanical core, if you do it by hand:
    Always run `--dry-run` first and read it. After renaming, run both projects' gates
    **including the E2E suite**: three test files assert brand strings (two unit, one
    E2E), so a partial rename shows up as failing tests — one only in `verify:push`.
+   `docc check` must exit 0 straight after the rename: no tagged region holds a word the
+   rename rewrites (meta ADR-0011). A DOC402 here means the tagging rule was broken —
+   fix the region, not the fingerprint.
 5. **Install and wire env:** `scripts/setup.sh` — it copies each submodule's
    `.env.example` → `.env` (keeping existing ones) and runs `scripts/doctor.sh`; fill in
    the values until doctor passes — see [../docs/ENV-CONTRACT.md](../docs/ENV-CONTRACT.md).
@@ -36,7 +41,8 @@ The mechanical core, if you do it by hand:
 
 It renames the machine identity (frontend package name and lock, docker network, the
 theme `localStorage` key in all three places), every frontend file carrying the brand
-word — the list is searched, not kept by hand — and, with `--repo-owner`, the demo repo
+word — the list is searched, not kept by hand — the prototype's brand
+(`protokit/prototype`, while it exists), and, with `--repo-owner`, the demo repo
 references and the backend Go module path across `go.mod`, every backend `*.go` and
 `*.yml`, and the `Dockerfile` (its `-ldflags -X` stamps the version and build time).
 `scripts/rename-project.test.mjs` fails if any other backend file keeps the old path.

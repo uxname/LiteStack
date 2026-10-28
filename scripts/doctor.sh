@@ -306,6 +306,10 @@ if [[ "$HOOKS" == 1 ]]; then
   hook_check .        "npm install at the meta root"
   hook_check backend  "lefthook install in backend/ (part of task setup)"
   hook_check frontend "npm install in frontend/"
+  # The prototype is a submodule only until a product removes it (docs/adr/0011).
+  if git -C "$ROOT" config -f .gitmodules --get submodule.protokit.path >/dev/null; then
+    hook_check protokit "scripts/setup.sh (it installs the prototype's hooks)"
+  fi
 fi
 
 echo
