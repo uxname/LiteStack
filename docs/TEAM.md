@@ -43,10 +43,10 @@ the artefacts it owns.
 
 | Repo | pre-commit | pre-push |
 |---|---|---|
-| **backend** (Go) | `task check` (codegen-freshness, tidy, lint, arch, deadcode, secrets), `docc check` from the meta root ([ADR-0011](./adr/0011-requirements-in-docc-bind-prototype-and-code.md)) | `task test:cov` (unit + integration via testcontainers + coverage floors; needs Docker), `task vuln` (govulncheck — the only gate that needs the network) |
-| **frontend** (npm) | `npm run verify:commit` (`check` + gitleaks `secrets`), `docc check` from the meta root | `npm run verify:push` (`verify:commit` + gitleaks over history + `test:cov` + Playwright E2E + Storybook build) |
-| **meta** (npm) | `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)), `node scripts/check-agent-docs.mjs` (links and command names in the agent docs of all three repos, [ADR-0010](./adr/0010-agent-docs-are-checked-mechanically.md)) `docc check` + `node scripts/check-coverage.mjs` (requirements and every tag on them, [ADR-0011](./adr/0011-requirements-in-docc-bind-prototype-and-code.md)) and `npm run secrets` (gitleaks on the staged diff, skipped if not installed) | — (nothing slow to run) |
-| **protokit** (npm), while the product keeps it | `docc check` + `check-sync.mjs` from the meta root, `npm run check` in `prototype/` | `npm run test:e2e` in `prototype/` |
+| **backend** (Go) | `task check` (codegen-freshness, tidy, lint, arch, deadcode, secrets), `docc check backend` from the meta root — this repo's tags ([ADR-0011](./adr/0011-requirements-in-docc-bind-prototype-and-code.md)) | `task test:cov` (unit + integration via testcontainers + coverage floors; needs Docker), `task vuln` (govulncheck — the only gate that needs the network) |
+| **frontend** (npm) | `npm run verify:commit` (`check` + gitleaks `secrets`), `docc check frontend` from the meta root | `npm run verify:push` (`verify:commit` + gitleaks over history + `test:cov` + Playwright E2E + Storybook build) |
+| **meta** (npm) | `npm run likec4:validate` (the architecture model, [ADR-0003](./adr/0003-living-likec4-model.md)), `node scripts/check-agent-docs.mjs` (links and command names in the agent docs of all three repos, [ADR-0010](./adr/0010-agent-docs-are-checked-mechanically.md)), `docc check` (the requirements, every tag on them and their coverage, whole project — [ADR-0011](./adr/0011-requirements-in-docc-bind-prototype-and-code.md)) and `npm run secrets` (gitleaks on the staged diff, skipped if not installed) | — (nothing slow to run) |
+| **protokit** (npm), while the product keeps it | `docc check protokit` + `check-sync.mjs` from the meta root, `npm run check` in `prototype/` | `npm run test:e2e` in `prototype/` |
 
 The stand's config is checked by hand, not on commit: `npm run scale:validate`.
 

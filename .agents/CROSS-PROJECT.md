@@ -33,8 +33,11 @@ ADR-0011](../docs/adr/0011-requirements-in-docc-bind-prototype-and-code.md) reco
 how. What an agent does with them:
 
 - **A requirement is a paragraph of a `req` document.** Each one has at least one
-  `docc:` tag in the prototype or the product (`scripts/check-coverage.mjs`). A note — a
-  `page` document — needs none; a tag on one still binds.
+  `docc:` tag in the prototype or the product (docc's DOC404). A note — a `page`
+  document — needs none; a tag on one still binds.
+- **A requirement nobody is building yet is a note.** Write it in a `page` document,
+  which needs no tag, and move it into a `req` document when work on it starts — so
+  planned work is written down without failing coverage.
 - **Tag a region, at the entry point.** `// docc:begin <id>#^<code>` … `// docc:end`
   around the code that carries the rule: a resolver or service, a validation, a route or
   feature hook. Never a whole Go or TypeScript file, and never a region holding a word
@@ -42,15 +45,19 @@ how. What an agent does with them:
   `litefront-theme`): deriving a product would break its fingerprint. Not
   `schema.graphqls` and not `db/queries/*.sql`: gqlgen and sqlc copy their text — the
   comments around a query included — into generated code. Tag the Go code that
-  resolves the field or runs the query. JSON files take no comments,
-  so a value that lives only in JSON is tagged where the code reads it.
+  resolves the field or runs the query. Not `db/migrations/*.sql`: an applied migration
+  is history and must never change with a requirement; tag the code that uses what it
+  created. JSON files take no comments, so a value that lives only in JSON is tagged
+  where the code reads it.
 - **Hashes and fingerprints are written by hand, one place at a time**, after reading
   both sides — never by a script over many files. A new tag gets its values from the
   DOC209/DOC402 hint.
-- **Everything in line, then commit.** `docc check` in any repo's hook reads the whole
-  project, so an edited paragraph blocks commits everywhere until every tag on it is
-  updated. Order: edit every working tree, then commit protokit, backend, frontend, and
-  the meta last.
+- **Each hook checks its own; the meta checks all.** A submodule's hook runs
+  `docc check <its folder>` from the meta root: it fails on that repository's stale tags
+  and on a change of its own that leaves a requirement without its last tag — not on
+  another submodule's unfinished edit. The meta's hook checks the whole project, so an
+  edited paragraph lands only when every tag on it is in line. Order: edit every working
+  tree, then commit protokit, backend, frontend, and the meta last.
 
 ## The four seams
 
@@ -131,7 +138,7 @@ How code, tests, log lines and commit messages are written:
   | `DB_POOL_MAX`, `TRUSTED_PROXY_HOPS`, `PROXY_NETWORK`, `S3_*` — what they mean and how to size them | [`backend/.agents/OPERATIONS.md`](../backend/.agents/OPERATIONS.md) |
   | That there is no CI, and what runs instead | [`docs/adr/0001`](../docs/adr/0001-no-ci-gates-live-in-git-hooks.md) for the decision, [`docs/TEAM.md`](../docs/TEAM.md) for the gate table. The `--no-verify` warnings in the gate files are not copies: they sit where someone reads them |
   | What the meta-repo pre-commit hook runs | [`lefthook.yml`](../lefthook.yml) |
-  | What the product must do | `docs/src` (docc), checked by `docc check` and `scripts/check-coverage.mjs` |
+  | What the product must do | `docs/src` (docc), checked by `docc check` |
   | Deploy order and targets | [`docs/DEPLOY.md`](../docs/DEPLOY.md) |
   | Toolchain requirements and minimum versions | the root [`README.md`](../README.md) |
   | A subscription is not a delivery guarantee | [`backend/.agents/ARCHITECTURE.md`](../backend/.agents/ARCHITECTURE.md) |

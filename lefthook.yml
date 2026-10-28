@@ -43,17 +43,10 @@ pre-commit:
       # ADR-0011: the product's requirements (docs/src) and every docc: tag in the
       # prototype, backend and frontend agree — a changed paragraph or a changed tagged
       # region fails until an agent has read both sides and written the new hash or
-      # fingerprint by hand. docc is required, like Node: setup.sh checks for it.
+      # fingerprint by hand — and every requirement paragraph has at least one tag
+      # (DOC404; notes need none). The whole project, unlike the submodules' hooks,
+      # which check their own files. docc is required, like Node: setup.sh checks for it.
       run: docc check --max-warnings 0
-
-    coverage:
-      # ADR-0011: every requirement paragraph has at least one tag, in the prototype
-      # or the product. Notes need none.
-      run: node scripts/check-coverage.mjs
-
-    coverage-selftest:
-      glob: "scripts/check-coverage*.mjs"
-      run: node --test scripts/check-coverage.test.mjs
 
     secrets:
       # gitleaks over the staged diff — the commit's own content, which is what a

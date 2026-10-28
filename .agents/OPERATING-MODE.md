@@ -49,8 +49,8 @@ git submodule deinit -f protokit && git rm protokit && git commit -m "Remove the
 
 Nothing else changes: `docc.json`'s `protokit/...` masks then match nothing, the scripts
 skip a missing prototype, and the meta's instructions never link to it. A requirement
-whose only tag was in the prototype now fails `scripts/check-coverage.mjs`: tag it in the
-product (or delete the paragraph) in the same commit. Its history stays in the
+whose only tag was in the prototype now fails `docc check` (DOC404, which names it): tag
+it in the product (or delete the paragraph) in the same commit. Its history stays in the
 prototype's own repository.
 
 Never push a derived project's changes to the `uxname/*` upstreams.

@@ -39,7 +39,7 @@ Documents of a requirement kind (a schema with `x-docc-covered`, `docs/schemas/r
 hold what the product must do; every other kind (`page.json`) holds notes.
 
 **How code is linked.** In the backend and the frontend a requirement is linked at its
-entry points (resolvers and services, validations, migrations, routes and feature hooks)
+entry points (resolvers and services, validations, routes and feature hooks)
 by **regions**, `docc:begin <targets>` … `docc:end`, around the code that carries the
 rule. No Go or TypeScript file gets a whole-file tag, and nothing inside a region is a
 word `scripts/rename-project.sh` rewrites, so deriving a product breaks no fingerprint.
@@ -47,11 +47,14 @@ word `scripts/rename-project.sh` rewrites, so deriving a product breaks no finge
 sqlc copy their text, comments next to a query included, into generated code, so a tag
 there would land in a generated file and every new hash would need a regeneration. The
 Go code that resolves the field or runs the query carries it instead.
+Migrations carry no tag either: an applied migration is history, and editing it to
+follow a changed requirement would not change a database it already ran on. The code
+that uses what a migration created carries the tag.
 A value that lives only in JSON (the list of languages in `project.inlang`) is tagged
 where the code reads it, since JSON takes no comments.
 
 **What must be linked.** Every block of a requirement document has at least one tag,
-in the prototype or in the product (`scripts/check-coverage.mjs`). Notes need none. Any
+in the prototype or in the product (docc's DOC404, docc 0.7). Notes need none. Any
 tag that exists is binding, a tag on a note included.
 
 **The prototype.** protokit is a third submodule, `protokit/`, pointing at
@@ -63,9 +66,11 @@ it, the scripts skip it when it is absent, and the LikeC4 model does not include
 (it is a development tool, not part of the running system).
 
 **Gates.** Each submodule's `lefthook.yml` gets a second pre-commit command: when
-`../docc.json` exists, `docc check` runs from the meta root. The meta's pre-commit runs
-`docc check` and `check-coverage`. A submodule used on its own has no `../docc.json`
-and skips the check.
+`../docc.json` exists, `docc check <its folder>` runs from the meta root — the whole
+project is read, the report keeps that repository's files, and a change of its own that
+leaves a requirement without its last tag fails it (docc compares with the repository's
+last commit). The meta's pre-commit runs the full `docc check`. A submodule used on its
+own has no `../docc.json` and skips the check.
 
 ## Alternatives
 
@@ -90,12 +95,13 @@ and skips the check.
   paragraph fails until every tag pointing to it — prototype, backend, frontend — has
   been read and given the new hash. The order is: bring every working tree in line,
   then commit protokit, backend, frontend, and the meta last.
-- **One side waits for the others.** `docc check` has no path filter: a submodule's
-  hook checks the whole project, so an unfinished edit in the frontend also stops a
-  backend commit. Accepted — it is the same rule ("everything in line first") seen
-  from the other side.
-- **Coverage is caught late.** Only the meta checks it, so a removed tag is noticed
-  when the submodule pointer is committed, as in meta ADR-0010.
+- **Each repository answers for its own files.** An unfinished edit in the frontend does
+  not block a backend commit; the meta's full check is where everything must agree.
+  A tag removed in a submodule is caught by that submodule's own commit; a new
+  requirement nobody has tagged yet is caught by the meta's.
+- **One parser.** Coverage is a docc rule (DOC404) over docc's own tag scan, so it
+  cannot disagree with what DOC209 and DOC402 check; protokit's `check-sync.mjs` keeps
+  only what is the prototype's (a `Req` without a tag, an untagged screen).
 - **Formatters can cost a review.** A formatter that rewraps lines or adds a blank line
   inside a region raises DOC402, and an agent rewrites the fingerprint after checking
   the code still matches.
@@ -104,7 +110,7 @@ and skips the check.
 - **protokit's `main` is not self-contained.** It ships the smallest prototype that
   runs — a home page and a sign-in page tied to LiteStack's sign-in paragraphs — and
   needs a parent with `docc.json` to pass its checks.
-- **docc is a required tool**, 0.6.0 or newer; `scripts/setup.sh` checks it, and
+- **docc is a required tool**, 0.7.0 or newer; `scripts/setup.sh` checks it, and
   `scripts/doctor.sh` checks the prototype's hooks while the prototype exists.
 - **protokit keeps no CI.** With no documents of its own it has nothing to check alone;
   its `lefthook.yml` runs the checks when it sits in a LiteStack clone.

@@ -27,7 +27,7 @@ LiteStack/
 ├── .agents/         # the cross-project instruction files AGENTS.md routes to
 ├── docc.json        # docc: where the requirements are and which code folders carry their tags
 ├── docs/            # src/ + schemas/ (the requirements, docc), TEAM.md, ENV-CONTRACT.md, DEPLOY.md, adr/, retro/, architecture/likec4/
-├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh, check-agent-docs.mjs, check-coverage.mjs
+├── scripts/         # setup.sh, doctor.sh, scale-check.sh, rename-project.sh, check-agent-docs.mjs
 ├── scale/           # local multi-copy stand: 2+2 copies behind one Caddy
 ├── backend/         # submodule → liteend-go (Go · chi · gqlgen · sqlc · goose)
 ├── frontend/        # submodule → litefront (Vite · React 19 · URQL)
@@ -44,7 +44,7 @@ LiteStack/
 | Go | 1.27 | `go version` |
 | Task | any (on Arch the binary is `go-task`) | `task --version` |
 | Node | 24.15.0 | `node -v` |
-| docc | 0.6.0 — the first that reads tags inside submodules | `docc --version` |
+| docc | 0.7.0 — the first that checks one submodule's tags and every requirement's coverage | `docc --version` |
 
 `scripts/setup.sh` checks all six and names everything missing in one message.
 

@@ -40,11 +40,12 @@ command -v go  >/dev/null || missing+=("go (1.27+)")
 command -v task >/dev/null || { TASK=go-task; command -v go-task >/dev/null || missing+=("task (on Arch: go-task)"); }
 if ! command -v node >/dev/null; then missing+=("node (>= 24.15.0)")
 elif ! ver_ge "$(node -v | tr -d v)" 24.15.0; then missing+=("node >= 24.15.0 — found $(node -v)"); fi
-# docc 0.6.0 is the first that reads tags inside submodules (docs/adr/0011). A local
+# docc 0.7.0 is the first that checks one submodule's tags (`docc check <folder>`) and
+# every requirement's coverage (DOC404), as the hooks need (docs/adr/0011). A local
 # build reports "dev" and is taken as new enough.
-if ! command -v docc >/dev/null; then missing+=("docc (>= 0.6.0): curl -fsSL https://raw.githubusercontent.com/uxname/docc/main/install.sh | sh")
-elif ! docc --version | grep -q ' dev$' && ! ver_ge "$(docc --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 0.6.0; then
-  missing+=("docc >= 0.6.0 — found $(docc --version); run: docc update"); fi
+if ! command -v docc >/dev/null; then missing+=("docc (>= 0.7.0): curl -fsSL https://raw.githubusercontent.com/uxname/docc/main/install.sh | sh")
+elif ! docc --version | grep -q ' dev$' && ! ver_ge "$(docc --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 0.7.0; then
+  missing+=("docc >= 0.7.0 — found $(docc --version); run: docc update"); fi
 if ! command -v docker >/dev/null; then missing+=("docker (Engine >= 27.4)")
 elif ! ver_ge "$(docker --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 27.4; then
   missing+=("docker Engine >= 27.4 — found $(docker --version)"); fi

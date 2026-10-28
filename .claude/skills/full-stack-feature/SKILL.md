@@ -26,6 +26,7 @@ Why backend first, and the full ordering rule: [`.agents/CROSS-PROJECT.md`](../.
 6. **Frontend.** Read `frontend/AGENTS.md`, follow its routing table, build the UI from
    `@generated/*`, tag the code that carries the rule, `npm run check` green.
 7. **Check the links** from the meta root: `docc check --max-warnings 0` and
-   `node scripts/check-coverage.mjs`; write each new hash and fingerprint by hand.
+   nothing else — `docc check` also reports a requirement with no tag (DOC404); write
+   each new hash and fingerprint by hand.
 8. **Commit** with the meta **`/commit`** skill — submodules first, then the pointers.
 
