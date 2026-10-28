@@ -1,6 +1,7 @@
 // Self-test for rename-project.sh: run it on clones of the submodules and check that the
 // template Go module path survives nowhere in backend/ except prose (*.md), and the
-// template brand nowhere in the prototype. The script
+// template brand nowhere in the prototype; with --repo-owner, neither the gqlgen-encoded
+// module path nor a template repo link in the frontend outside prose. The script
 // picks its files by a list of patterns; a build file outside that list (it was
 // backend/Dockerfile once) keeps the old path and nothing fails until the image is built.
 // Run: node --test scripts/rename-project.test.mjs
@@ -26,6 +27,11 @@ test("rename leaves the template module path only in prose", { skip: !existsSync
     // git grep exits 1 on no match, which is a pass here
     const left = spawnSync("git", ["grep", "-lF", "uxname/liteend-go"], { cwd: join(root, "backend"), encoding: "utf8" }).stdout.split("\n").filter(Boolean).filter((f) => !f.endsWith(".md"));
     assert.deepEqual(left, []);
+    // gqlgen writes the path into generated identifiers too, encoded (/ → ᚋ, - → ᚑ).
+    const encoded = spawnSync("git", ["grep", "-lF", "uxnameᚋliteendᚑgo"], { cwd: join(root, "backend"), encoding: "utf8" }).stdout.split("\n").filter(Boolean);
+    assert.deepEqual(encoded, []);
+    const frontRefs = spawnSync("git", ["grep", "-lF", "uxname/litefront", "--", ".", ":!*.md"], { cwd: join(root, "frontend"), encoding: "utf8" }).stdout.split("\n").filter(Boolean);
+    assert.deepEqual(frontRefs, []);
     if (existsSync(join(root, "protokit"))) {
       const brand = spawnSync("git", ["grep", "-lF", "LiteFront", "--", "prototype"], { cwd: join(root, "protokit"), encoding: "utf8" }).stdout.split("\n").filter(Boolean);
       assert.deepEqual(brand, []);

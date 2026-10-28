@@ -5,6 +5,6 @@
   "body": [
     "The account page is open to signed-in people only. A person who is not signed in is taken to sign in and then back to the account page. ^h7jn",
     "The page shows the person's avatar, name, email with a mark when the email is verified, roles and the date they joined. ^e4kk",
-    "Email, password, two-factor authentication and passkeys are changed in the Logto Account Center, which the account page links to; after a change the person comes back to the account page and sees a confirmation. ^sbve"
+    "Email, password, two-factor authentication and passkeys are changed in the Logto Account Center, which the account page links to; after a change the person comes back to the account page and sees what changed: the email, the password, two-factor authentication or a passkey. ^sbve"
   ]
 }

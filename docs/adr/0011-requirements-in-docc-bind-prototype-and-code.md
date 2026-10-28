@@ -43,8 +43,10 @@ entry points (resolvers and services, validations, migrations, routes and featur
 by **regions**, `docc:begin <targets>` … `docc:end`, around the code that carries the
 rule. No Go or TypeScript file gets a whole-file tag, and nothing inside a region is a
 word `scripts/rename-project.sh` rewrites, so deriving a product breaks no fingerprint.
-`schema.graphqls` carries no tag: gqlgen copies its text into the generated code, so a
-tag there would land in a generated file and every new hash would need a regeneration.
+`schema.graphqls` and the sqlc queries (`db/queries/*.sql`) carry no tag: gqlgen and
+sqlc copy their text, comments next to a query included, into generated code, so a tag
+there would land in a generated file and every new hash would need a regeneration. The
+Go code that resolves the field or runs the query carries it instead.
 A value that lives only in JSON (the list of languages in `project.inlang`) is tagged
 where the code reads it, since JSON takes no comments.
 

@@ -9,7 +9,7 @@ sub-project's own `AGENTS.md`.
 |---|---|---|---|
 | `backend/` | API (**liteend-go**) | Go · chi · **gqlgen** GraphQL (schema-first) · sqlc · pgx · PostgreSQL · Redis · Asynq · goose · OIDC | `4000` (`/graphql` + playground) |
 | `frontend/` | SPA/SSR (**litefront**) | Vite · React 19 · TanStack Start · URQL · Zustand · Tailwind v4 · shadcn/ui · Paraglide | `3000` |
-| `protokit/` | the prototype (**protokit**), until a product removes it | Vite · React 19 · urql + graphql-js on a simulated server in the browser | `5173` (the prototype's dev server, in `protokit/prototype`) |
+| `protokit/` | the prototype (**protokit**), until a product removes it | Vite · React 19 · urql + graphql-js on a simulated server in the browser | `3100` (`docker compose up -d --build` in `protokit/`), `5173` (its dev server) |
 
 Backend infra ports: PostgreSQL `5432`, Redis `6379`, pgweb `5100`, RedisInsight
 `5200`, Asynqmon `5300`, Garage Web UI `5400` — all dashboards sit behind a
@@ -40,7 +40,9 @@ how. What an agent does with them:
   feature hook. Never a whole Go or TypeScript file, and never a region holding a word
   `scripts/rename-project.sh` rewrites (the Go module path, `LiteFront`,
   `litefront-theme`): deriving a product would break its fingerprint. Not
-  `schema.graphqls`: gqlgen copies it into generated code. JSON files take no comments,
+  `schema.graphqls` and not `db/queries/*.sql`: gqlgen and sqlc copy their text — the
+  comments around a query included — into generated code. Tag the Go code that
+  resolves the field or runs the query. JSON files take no comments,
   so a value that lives only in JSON is tagged where the code reads it.
 - **Hashes and fingerprints are written by hand, one place at a time**, after reading
   both sides — never by a script over many files. A new tag gets its values from the

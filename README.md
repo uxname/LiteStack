@@ -67,6 +67,8 @@ then the same in `frontend/` with `docker compose up -d`. **From source**, one s
   First-time full onboarding: `task setup`.
 - **Frontend** (`frontend/`): configure the same way → `npm run start:dev` (serves at `:3000`).
   GraphQL types are already in the repo (`frontend/src/generated/`); `npm run gen` is only needed after editing `backend/internal/graph/schema.graphqls`.
+- **The prototype** (`protokit/`): `docker compose up -d --build` there, then
+  `http://localhost:3100` — no `.env`, no backend; details in [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 - **Note on `PORT`**: it is the only variable name both sides use, so export it per side —
   it belongs to whichever app you are starting.
 - **The multi-copy stand** (`scale/`): the product the way a server runs it with more than

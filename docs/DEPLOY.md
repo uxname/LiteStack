@@ -86,6 +86,18 @@ or the dev server: `npm run gen` (backend must be running) → `npm run start:de
 `frontend/.env` is for local development only. It is excluded from the Docker
 build context (`.dockerignore`), so it can never end up inside an image.
 
+**Prototype** (`protokit/`, while the product keeps it — meta ADR-0011):
+
+```bash
+docker compose up -d --build   # static build, served on PROTOTYPE_PORT (default 3100)
+```
+
+No `.env`, no backend: the prototype simulates its server in the browser. The image
+reads the requirements from the meta root (`docc.json`, `docs/`) and fetches docc
+itself, so the host needs neither Node nor docc. It is for looking at, never a
+deployment ("no active showcase", meta ADR-0011). For work on it, the dev server
+in `protokit/prototype` reloads on every edit.
+
 After changing any value, run `scripts/doctor.sh` from the meta root to verify
 the cross-project pairs (see [ENV-CONTRACT.md](./ENV-CONTRACT.md)). It reads each value
 the way the apps do — exported variable first, then that side's `.env` — so it works with

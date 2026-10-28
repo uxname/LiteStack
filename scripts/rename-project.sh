@@ -111,8 +111,8 @@ for f in "${BRAND_FILES[@]}"; do
 done
 # Demo repo refs (only when --repo-owner is provided):
 if [[ -n "$REPO_OWNER" ]]; then
-  OPS+=("frontend/src/pages/home/ui/index.tsx|uxname/litefront|$REPO_OWNER/$NAME")
-  OPS+=("frontend/src/pages/home/ui/index.tsx|uxname/liteend-go|$REPO_OWNER/$NAME")
+  # The footer's GitHub link, on every page.
+  OPS+=("frontend/src/widgets/AppShell/ui/AppShell.tsx|uxname/litefront|$REPO_OWNER/$NAME")
   # The install command the landing page copies to the clipboard, and the test
   # that pins it — otherwise a derived project tells visitors to degit the
   # template.
@@ -179,6 +179,25 @@ if [[ -n "$REPO_OWNER" ]]; then
       else
         RP_FROM="$OLD_MODULE" RP_TO="$NEW_MODULE" perl -i -pe 's/\Q$ENV{RP_FROM}\E/$ENV{RP_TO}/g' "$path"
         echo "edited $rel  (Go module path)"
+        changed=1
+      fi
+    done
+    # gqlgen also writes the module path into generated identifiers, encoded:
+    # github.com/uxname/liteend-go/internal/db/sqlc becomes githubᚗcomᚋuxnameᚋliteendᚑgoᚋ…
+    # (pkgReplacer in gqlgen's codegen/templates/templates.go). Missed, the generated code
+    # no longer matches what `task gen` writes and `task gen:check` fails the first commit.
+    gqlgen_enc() { local s="$1"; s="${s//\//ᚋ}"; s="${s//./ᚗ}"; s="${s//-/ᚑ}"; s="${s//\~/א}"; printf '%s' "$s"; }
+    OLD_ENC="$(gqlgen_enc "$OLD_MODULE")"
+    NEW_ENC="$(gqlgen_enc "$NEW_MODULE")"
+    mapfile -t ENC_FILES < <(grep -rlF "$OLD_ENC" "$ROOT/backend" --include='*.go' 2>/dev/null | sort -u)
+    for path in "${ENC_FILES[@]}"; do
+      rel="${path#"$ROOT"/}"
+      if [[ "$DRY_RUN" == 1 ]]; then
+        echo "WOULD edit $rel  (gqlgen-encoded module: $OLD_ENC -> $NEW_ENC)"
+        changed=1
+      else
+        RP_FROM="$OLD_ENC" RP_TO="$NEW_ENC" perl -i -pe 's/\Q$ENV{RP_FROM}\E/$ENV{RP_TO}/g' "$path"
+        echo "edited $rel  (gqlgen-encoded module path)"
         changed=1
       fi
     done
