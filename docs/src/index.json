@@ -1,9 +1,10 @@
 {
   "title": "LiteStack",
   "kind": "page",
+  "key": "IND",
   "body": [
-    "LiteStack is the starting point of a web product: a person signs in, keeps a profile and picks a language and a theme. A product made from the template keeps these documents and adds its own requirements next to them. ^vt5z",
-    "Requirements: [[auth@jv75]], [[account@63px]], [[profile@uebc]], [[avatar@tvw3]], [[language@3ry4]], [[theme@shqm]]. ^qpw8",
-    "The home page and the page for a wrong address are placeholders of the template that a product replaces; no requirement describes them. ^adaq"
+    "LiteStack is the starting point of a web product: a person signs in, keeps a profile and picks a language and a theme. A product made from the template keeps these documents and adds its own requirements next to them. ^IND-1",
+    "Requirements: [[auth@jv75]], [[account@63px]], [[profile@uebc]], [[avatar@tvw3]], [[language@3ry4]], [[theme@shqm]]. ^IND-2",
+    "The home page and the page for a wrong address are placeholders of the template that a product replaces; no requirement describes them. ^IND-3"
   ]
 }

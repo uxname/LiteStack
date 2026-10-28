@@ -1,11 +1,12 @@
 {
   "title": "Profile",
   "kind": "req",
+  "key": "PRO",
   "parent": "index",
   "body": [
-    "A person sets a display name of at most 100 characters and a bio of at most 1000 characters; either may be empty. ^bzhw",
-    "The server checks the same limits, so a request that does not come from the page cannot store a longer text. ^5mqw",
-    "Save changes stores only the fields that changed. Leaving the page with unsaved changes asks for a confirmation first. ^vnzw",
-    "An empty or blank display name, bio or avatar is stored as not set, so the account page shows the name from Logto instead of an empty one. ^dr9z"
+    "A person sets a display name of at most 100 characters and a bio of at most 1000 characters; either may be empty. ^PRO-1",
+    "The server checks the same limits, so a request that does not come from the page cannot store a longer text. ^PRO-2",
+    "Save changes stores only the fields that changed. Leaving the page with unsaved changes asks for a confirmation first. ^PRO-3",
+    "An empty or blank display name, bio or avatar is stored as not set, so the account page shows the name from Logto instead of an empty one. ^PRO-4"
   ]
 }
