@@ -41,7 +41,7 @@ LiteStack/
 |---|---|---|
 | git | any | `git --version` |
 | Docker Engine | 27.4 — why: `backend/.agents/OPERATIONS.md` | `docker --version` |
-| Go | 1.27 | `go version` |
+| Go | 1.27.3 — `backend/go.mod` pins it; the coverage floors are measured with it | `go version` |
 | Task | any (on Arch the binary is `go-task`) | `task --version` |
 | Node | 26.12.1 — the October 2026 security release; `devEngines` refuses older | `node -v` |
 | docc | 0.9.0 — the version the prototype image pins | `docc --version` |

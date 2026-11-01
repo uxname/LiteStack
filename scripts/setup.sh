@@ -36,7 +36,8 @@ step "Toolchain"
 TASK=task
 missing=()
 command -v git >/dev/null || missing+=("git")
-command -v go  >/dev/null || missing+=("go (1.27+)")
+if ! command -v go >/dev/null; then missing+=("go (>= 1.27.3)")
+elif ! ver_ge "$(GOTOOLCHAIN=local go env GOVERSION | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 1.27.3; then missing+=("go >= 1.27.3 — found $(GOTOOLCHAIN=local go env GOVERSION)"); fi
 command -v task >/dev/null || { TASK=go-task; command -v go-task >/dev/null || missing+=("task (on Arch: go-task)"); }
 if ! command -v node >/dev/null; then missing+=("node (>= 26.12.1)")
 elif ! ver_ge "$(node -v | tr -d v)" 26.12.1; then missing+=("node >= 26.12.1 — found $(node -v)"); fi
