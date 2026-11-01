@@ -3,7 +3,7 @@
 One server, set up once, serves every product. This page takes it from an empty
 machine to alerts arriving in Telegram. Each step ends with a check you can run.
 
-Versions below were current on 2026-10-10. Pin exact tags (never `latest`) and bump them
+Versions below were current on 2026-11-01. Pin exact tags (never `latest`) and bump them
 deliberately, re-checking the memory budget after each bump.
 
 ## 0. What you need
@@ -42,7 +42,8 @@ means its limit is too low, not that the server is too small.
 Dokploy → Create Service → Template → **OpenObserve**. Then, before deploying:
 
 - **Image:** the template pins `v0.70.0`, which is old. Set
-  `public.ecr.aws/zinclabs/openobserve:v1.0.4` (the stable release on 2026-10-10).
+  `public.ecr.aws/zinclabs/openobserve:v1.1.2` (the stable release on 2026-11-01; bumped
+  from v1.0.4 without a run on a live stand — check the step-2 result after deploying).
 - **Environment** (add to the template's three):
 
   ```env
@@ -213,7 +214,7 @@ service:
 ```yaml
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.162.0
+    image: otel/opentelemetry-collector-contrib:0.164.0
     user: "0"            # Docker's log directories and socket are root-only
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     environment:
@@ -236,7 +237,7 @@ volumes:
 `O2_AUTH` is `echo -n 'email:password' | base64` for an OpenObserve user or service
 account of that organization. Keep it in Dokploy's environment, never in a repo.
 
-**Check:** run `docker run --rm -v ./config.yaml:/c.yaml otel/opentelemetry-collector-contrib:0.162.0 validate --config=/c.yaml`
+**Check:** run `docker run --rm -v ./config.yaml:/c.yaml otel/opentelemetry-collector-contrib:0.164.0 validate --config=/c.yaml`
 before the first deploy. After it, OpenObserve → Logs → stream `docker` shows lines
 from the app containers with `service_name` filled (dots in field names become
 underscores), and Metrics shows `system_*` and `container_*` series.

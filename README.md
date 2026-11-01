@@ -43,8 +43,8 @@ LiteStack/
 | Docker Engine | 27.4 — why: `backend/.agents/OPERATIONS.md` | `docker --version` |
 | Go | 1.27 | `go version` |
 | Task | any (on Arch the binary is `go-task`) | `task --version` |
-| Node | 24.15.0 | `node -v` |
-| docc | 0.7.0 — the first that checks one submodule's tags and every requirement's coverage | `docc --version` |
+| Node | 26.12.1 — the October 2026 security release; `devEngines` refuses older | `node -v` |
+| docc | 0.9.0 — the version the prototype image pins | `docc --version` |
 
 `scripts/setup.sh` checks all six and names everything missing in one message.
 

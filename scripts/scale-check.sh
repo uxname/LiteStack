@@ -390,7 +390,7 @@ echo
 # ---------------------------------------------------------------------------
 echo "4. Subscriptions cross the copies"
 NONCE="scale-check-$$-$RANDOM"
-docker run --rm --network litestack-scale-net -e SUB="$SUB" node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 node -e '
+docker run --rm --network litestack-scale-net -e SUB="$SUB" node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 node -e '
   const s = new WebSocket("ws://backend-b:4000/graphql", "graphql-transport-ws");
   s.onopen = () => s.send(JSON.stringify({type: "connection_init", payload: {"x-mock-sub": process.env.SUB}}));
   s.onmessage = (e) => { console.log(e.data);

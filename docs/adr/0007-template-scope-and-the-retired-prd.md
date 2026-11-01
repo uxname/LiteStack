@@ -1,7 +1,7 @@
 # ADR 0007: the template's scope lives in ADRs; the PRD is retired
 
 - **Date:** 2026-09-07
-- **Status:** superseded by [ADR-0011](./0011-requirements-in-docc-bind-prototype-and-code.md)
+- **Status:** superseded by [ADR-0011](./0011-requirements-in-docc-bind-prototype-and-code.md); its line on Renovate by [ADR-0012](./0012-dependency-updates-are-manual.md)
 
 ## Context
 

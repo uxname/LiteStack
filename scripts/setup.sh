@@ -2,7 +2,7 @@
 #
 # setup.sh — the one command that takes a fresh LiteStack clone to a runnable state.
 # Idempotent. It walks the whole path and stops at the first step that fails, saying
-# what is wrong: toolchain check (git, docker >= 27.4, go, task, node >= 24.15.0) ->
+# what is wrong: toolchain check (git, docker >= 27.4, go, task, node >= 26.12.1) ->
 # submodules -> an .env per side (`cp -n`, never overwrites) -> scripts/doctor.sh on the
 # env -> `task setup` in backend -> `npm ci` in frontend -> `npm ci` at the meta
 # root -> scripts/doctor.sh again, whole, to prove the installs left a git hook in all
@@ -38,14 +38,14 @@ missing=()
 command -v git >/dev/null || missing+=("git")
 command -v go  >/dev/null || missing+=("go (1.27+)")
 command -v task >/dev/null || { TASK=go-task; command -v go-task >/dev/null || missing+=("task (on Arch: go-task)"); }
-if ! command -v node >/dev/null; then missing+=("node (>= 24.15.0)")
-elif ! ver_ge "$(node -v | tr -d v)" 24.15.0; then missing+=("node >= 24.15.0 — found $(node -v)"); fi
-# docc 0.7.0 is the first that checks one submodule's tags (`docc check <folder>`) and
-# every requirement's coverage (DOC404), as the hooks need (docs/adr/0011). A local
-# build reports "dev" and is taken as new enough.
-if ! command -v docc >/dev/null; then missing+=("docc (>= 0.7.0): curl -fsSL https://raw.githubusercontent.com/uxname/docc/main/install.sh | sh")
-elif ! docc --version | grep -q ' dev$' && ! ver_ge "$(docc --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 0.7.0; then
-  missing+=("docc >= 0.7.0 — found $(docc --version); run: docc update"); fi
+if ! command -v node >/dev/null; then missing+=("node (>= 26.12.1)")
+elif ! ver_ge "$(node -v | tr -d v)" 26.12.1; then missing+=("node >= 26.12.1 — found $(node -v)"); fi
+# docc 0.9.0 is the version the prototype image pins; 0.7 added one submodule's tags
+# (`docc check <folder>`) and coverage (DOC404), 0.8 the block codes docs/src uses
+# (docs/adr/0011). A local build reports "dev" and is taken as new enough.
+if ! command -v docc >/dev/null; then missing+=("docc (>= 0.9.0): curl -fsSL https://raw.githubusercontent.com/uxname/docc/main/install.sh | sh")
+elif ! docc --version | grep -q ' dev$' && ! ver_ge "$(docc --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 0.9.0; then
+  missing+=("docc >= 0.9.0 — found $(docc --version); run: docc update"); fi
 if ! command -v docker >/dev/null; then missing+=("docker (Engine >= 27.4)")
 elif ! ver_ge "$(docker --version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" 27.4; then
   missing+=("docker Engine >= 27.4 — found $(docker --version)"); fi
