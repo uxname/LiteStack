@@ -36,10 +36,8 @@ pairs. This skill covers only the parts that need a human.
    git add .gitmodules && git commit -m "chore(submodules): point at own repos"
    ```
    The clone leaves the submodules on a detached HEAD, so give each a branch before the
-   first commit: `git -C backend switch -c master`, same for `frontend`; protokit's branch
-   is `main` (`git -C protokit switch -c main`).
-   If the team's host or rules want the default branch `main`, name it so now: `git branch -m master main`
-   in the meta repo, and `switch -c main` instead of `master` in each submodule.
+   first commit: `git -C backend switch -c main`, same for `frontend` and `protokit` —
+   all four repos use `main`.
    When `.gitmodules` no longer points at `uxname/*`, the project is in DERIVED mode
    (`.agents/OPERATING-MODE.md`) and nothing will ever push to the templates again.
    Done when every submodule URL and all four `origin` remotes point at the team's

@@ -10,7 +10,7 @@
 installed: by November 2026 every repo had drifted — 36 outdated npm packages in
 `frontend/`, ~230 Go modules, Docker digests months old — and the Node 24 the hooks ran
 on missed the October 2026 security release. There is no CI (ADR-0001) and template
-changes go straight to `master`, so a bot's pull requests would each have to be checked
+changes go straight to `main`, so a bot's pull requests would each have to be checked
 out and gated by hand anyway. Every Docker image is pinned by digest, which only a bot
 or a person ever moves.
 

@@ -12,12 +12,12 @@ A derived product is **three repos** owned by the team: meta + backend + fronten
   Do **not** have each developer fork their own meta; the submodule pointers are shared state
   and per-dev forks make them diverge.
 - Developers clone with `--recurse-submodules`, then run `scripts/setup.sh`.
-- Work happens on `master` in each repo; the pre-commit and pre-push hooks are the
+- Work happens on `main` in each repo; the pre-commit and pre-push hooks are the
   guarantee, not review. In a derived product's team branches and pull requests are a
   **recommendation** — nothing in the tooling assumes them.
 
 Forking is only for the **templates** themselves (`uxname/*`): a boilerplate improvement
-goes to the template's `master`, then the pointer moves. An outside contributor without
+goes to the template's `main`, then the pointer moves. An outside contributor without
 push rights opens a pull request instead.
 
 ## Creating the product
